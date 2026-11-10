@@ -301,14 +301,15 @@ export const toolbox = {
   ],
 }
 
+// The same palette as the landing page's blocks; no violet, so conditions and logic read as teal and slate.
 const COLOURS = {
-  root: '#334155',
-  market: '#0f766e',
-  indicator: '#2563eb',
-  condition: '#7c3aed',
-  logic: '#9333ea',
-  action: '#059669',
-  risk: '#dc2626',
+  root: '#0e3f47',
+  market: '#1f6f78',
+  indicator: '#3d6ef5',
+  condition: '#0f8a8a',
+  logic: '#4f6470',
+  action: '#16a37a',
+  risk: '#ec5b4d',
 } as const
 
 export function createTheme(): Blockly.Theme {
@@ -324,16 +325,17 @@ export function createTheme(): Blockly.Theme {
     blockStyles: blockStyles as Record<string, Blockly.Theme.BlockStyle>,
     categoryStyles,
     componentStyles: {
-      workspaceBackgroundColour: '#f8fafc',
+      workspaceBackgroundColour: '#eef5f6',
       toolboxBackgroundColour: '#ffffff',
-      toolboxForegroundColour: '#0f172a',
-      flyoutBackgroundColour: '#f1f5f9',
-      flyoutOpacity: 0.97,
-      scrollbarColour: '#cbd5e1',
-      insertionMarkerColour: '#0f172a',
-      insertionMarkerOpacity: 0.25,
+      toolboxForegroundColour: '#0d1b24',
+      flyoutBackgroundColour: '#ffffff',
+      flyoutOpacity: 0.96,
+      scrollbarColour: '#c5d6db',
+      insertionMarkerColour: '#0d1b24',
+      insertionMarkerOpacity: 0.2,
+      selectedGlowColour: '#c8f25a',
     },
-    fontStyle: { family: 'Inter, ui-sans-serif, system-ui, sans-serif', weight: '600', size: 11 },
+    fontStyle: { family: 'Satoshi, ui-sans-serif, system-ui, sans-serif', weight: '700', size: 12 },
     startHats: true,
   })
 }

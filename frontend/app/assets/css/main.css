@@ -1,19 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, sans-serif;
+  --font-sans: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  /* Brand palette: the editor's own block colours on its dotted workspace. */
-  --color-ink: #172036;
-  --color-canvas: #f2f5fa;
-  --color-dots: #cfd8e6;
-  --color-market: #0f766e;
-  --color-indicator: #2563eb;
-  --color-condition: #7c3aed;
-  --color-action: #059669;
-  --color-risk: #dc2626;
-  --color-root: #334155;
+  /* Brand palette, shared by the landing page and the builder. Block colours live on the blocks only. */
+  --color-ink: #0d1b24;
+  --color-petrol: #0e3f47;
+  --color-petrol-deep: #082a30;
+  --color-lime: #c8f25a;
+  --color-canvas: #eef5f6;
+  --color-dots: #c5d6db;
+  --color-gain: #0e9963;
+  --color-loss: #e5483e;
+  --color-market: #1f6f78;
+  --color-indicator: #3d6ef5;
+  --color-condition: #0f8a8a;
+  --color-action: #16a37a;
+  --color-risk: #ec5b4d;
+  --color-root: #0e3f47;
 }
 
 html {
@@ -27,16 +33,15 @@ html {
 }
 
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f7fafb;
+  color: #0d1b24;
 }
 
-/* The dotted grid of the block editor, reused as the brand's background texture. */
-.dotted-canvas {
-  background-color: var(--color-canvas);
-  background-image: radial-gradient(var(--color-dots) 1.2px, transparent 1.2px);
-  background-size: 22px 22px;
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
 }
+
 
 /* Blockly's toolbox inherits the app font and gets a bit more breathing room. */
 .blocklyToolboxCategory {
@@ -45,5 +50,23 @@ body {
 
 .blocklyTreeLabel {
   font-family: var(--font-sans);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+/* The block list: a calm white panel, the category marks as small rounded squares. */
+.blocklyToolbox {
+  border-right: 1px solid #dde6e9;
+}
+
+.blocklyToolboxCategoryIcon {
+  border-radius: 4px;
+}
+
+.blocklyFlyoutBackground {
+  fill-opacity: 0.96;
+}
+
+.blocklyText,
+.blocklyFlyoutLabelText {
+  font-family: var(--font-sans) !important;
 }

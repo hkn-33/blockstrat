@@ -99,20 +99,18 @@ function formatDateTime(unixSeconds: number): string {
       </p>
 
       <template v-if="result && metrics">
-        <div class="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+        <div class="rounded-[20px] bg-white p-5 ring-1 ring-[#dde6e9]">
           <p class="text-sm text-slate-500">
             Your strategy
           </p>
-          <p class="font-display text-4xl font-extrabold" :class="metrics.total_return_pct >= 0 ? 'text-emerald-600' : 'text-red-600'">
+          <p class="font-display text-4xl font-extrabold" :class="metrics.total_return_pct >= 0 ? 'text-gain' : 'text-loss'">
             <AnimatedNumber :value="metrics.total_return_pct" :format="percent" />
           </p>
           <p class="mt-1 text-sm text-slate-600">
             Simply holding: <AnimatedNumber :value="metrics.buy_and_hold_return_pct" :format="percent" class="font-semibold" />
           </p>
-          <p
-            class="mt-3 inline-block rounded-full px-3 py-1 text-xs font-semibold"
-            :class="beatsBuyAndHold ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'"
-          >
+          <p class="mt-3 flex items-center gap-1.5 text-sm font-bold" :class="beatsBuyAndHold ? 'text-gain' : 'text-loss'">
+            <UiIcon :name="beatsBuyAndHold ? 'circle-check' : 'x'" />
             {{ beatsBuyAndHold ? 'Did better than holding' : 'Did worse than holding' }}
           </p>
 
