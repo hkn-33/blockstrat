@@ -1,0 +1,11 @@
+# Python
+backend/.venv/
+__pycache__/
+.pytest_cache/
+
+# Cached market data (downloaded from Binance at runtime)
+backend/data/
+
+# Secrets
+.env
+!.env.example

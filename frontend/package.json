@@ -1,0 +1,31 @@
+{
+  "name": "strategy-lab-frontend",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "gen:types": "uv run --project ../backend python -m strategy_lab.export_schema app/types/api.schema.json && json2ts -i app/types/api.schema.json -o app/types/api.ts --unreachableDefinitions --additionalProperties false",
+    "test": "vitest run",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "blockly": "^13.4.0",
+    "lightweight-charts": "^5.2.1",
+    "lz-string": "^1.5.0",
+    "nuxt": "^4.6.4",
+    "tailwindcss": "^4.3.5",
+    "vue": "^3.5.45",
+    "vue-router": "^5.4.0"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "^16.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.0",
+    "vue-tsc": "^3.3.14"
+  }
+}
