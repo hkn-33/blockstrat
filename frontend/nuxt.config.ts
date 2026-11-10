@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  modules: ['@nuxtjs/color-mode'],
+  // Light or dark follows the system until the visitor picks one; the class goes on <html>.
+  colorMode: { preference: 'system', fallback: 'dark', classSuffix: '' },
   routeRules: {
     // The landing page is plain HTML for search engines and fast first paint.
     '/': { prerender: true },

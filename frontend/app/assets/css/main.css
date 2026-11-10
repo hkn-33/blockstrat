@@ -14,6 +14,9 @@
   --color-dots: #c5d6db;
   --color-gain: #0e9963;
   --color-loss: #e5483e;
+  /* The same gain and loss, lightened to read on the dark chart panels. */
+  --color-gain-bright: #2fc59f;
+  --color-loss-bright: #ff5a63;
   --color-market: #1f6f78;
   --color-indicator: #3d6ef5;
   --color-condition: #0f8a8a;
@@ -22,7 +25,8 @@
   --color-root: #0e3f47;
 }
 
-html {
+/* Lenis smooths the landing page itself; native smooth scrolling would fight it there. */
+html:not(.lenis) {
   scroll-behavior: smooth;
 }
 
