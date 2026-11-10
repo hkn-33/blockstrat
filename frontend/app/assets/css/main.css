@@ -2,17 +2,40 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, sans-serif;
+
+  /* Brand palette: the editor's own block colours on its dotted workspace. */
+  --color-ink: #172036;
+  --color-canvas: #f2f5fa;
+  --color-dots: #cfd8e6;
+  --color-market: #0f766e;
+  --color-indicator: #2563eb;
+  --color-condition: #7c3aed;
+  --color-action: #059669;
+  --color-risk: #dc2626;
+  --color-root: #334155;
 }
 
-html,
-body,
-#__nuxt {
-  height: 100%;
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 body {
   background: #f8fafc;
   color: #0f172a;
+}
+
+/* The dotted grid of the block editor, reused as the brand's background texture. */
+.dotted-canvas {
+  background-color: var(--color-canvas);
+  background-image: radial-gradient(var(--color-dots) 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
 }
 
 /* Blockly's toolbox inherits the app font and gets a bit more breathing room. */

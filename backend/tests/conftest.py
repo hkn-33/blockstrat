@@ -4,9 +4,9 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from strategy_lab.api import create_app
-from strategy_lab.market_data import Instrument, UnknownInstrumentError
-from strategy_lab.schema import Timeframe
+from blockstrat.api import create_app
+from blockstrat.market_data import Instrument, UnknownInstrumentError
+from blockstrat.schema import Timeframe
 
 FIXTURE_SYMBOL = "TESTUSDT"
 

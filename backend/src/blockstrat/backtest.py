@@ -8,7 +8,7 @@ import pandas as pd
 from backtesting import Strategy as EngineStrategy
 from backtesting.lib import FractionalBacktest
 
-from strategy_lab.schema import (
+from blockstrat.schema import (
     BacktestMode,
     BacktestResult,
     Bar,
@@ -17,7 +17,7 @@ from strategy_lab.schema import (
     TimePoint,
     Trade,
 )
-from strategy_lab.signals import condition_operands, condition_series, warmed_up
+from blockstrat.signals import condition_operands, condition_series, warmed_up
 
 STARTING_CASH = 10_000
 PREVIEW_BAR_COUNT = 3000

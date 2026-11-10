@@ -16,5 +16,5 @@ RUN uv sync --frozen --no-dev
 EXPOSE 8000
 # Proxy headers are trusted from anyone because the port is only reachable from Caddy inside the
 # compose network; the per-IP AI limit relies on the real client IP from X-Forwarded-For.
-CMD ["/app/.venv/bin/uvicorn", "strategy_lab.api:create_default_app", "--factory", \
+CMD ["/app/.venv/bin/uvicorn", "blockstrat.api:create_default_app", "--factory", \
      "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]

@@ -32,12 +32,10 @@ export function setInstrumentOptions(options: { symbol: string, label: string }[
 const PERIOD = (value: number, min = 1) => ({ type: 'field_number', name: 'PERIOD', value, min, max: 1000, precision: 1 })
 const PERCENT = (value: number, max: number) => ({ type: 'field_number', name: 'PCT', value, min: 0.1, max, precision: 0.1 })
 
-let registered = false
+const MACD_CHECK = 'macd_periods_check'
 
+/** Safe to call more than once: Blockly's registries outlive hot module reloads. */
 export function registerBlocks(): void {
-  if (registered) return
-  registered = true
-
   Blockly.Blocks[BlockType.root] = {
     init(this: Blockly.Block) {
       this.appendDummyInput().appendField('Strategy')
@@ -60,6 +58,8 @@ export function registerBlocks(): void {
       this.appendStatementInput('SETTINGS').setCheck('Setting').appendField('settings (optional)')
       this.setStyle(STYLE.root)
       this.setDeletable(false)
+      // The Strategy block is the fixed form people fill in; only the blocks inside it move.
+      this.setMovable(false)
       this.setTooltip('Fill all four slots to see the backtest.')
     },
   }
@@ -74,13 +74,15 @@ export function registerBlocks(): void {
     },
   }
 
-  Blockly.Extensions.register('macd_periods_check', function (this: Blockly.Block) {
-    this.setOnChange(() => {
-      const fast = Number(this.getFieldValue('FAST'))
-      const slow = Number(this.getFieldValue('SLOW'))
-      this.setWarningText(fast >= slow ? 'Fast period must be shorter than slow period.' : null)
+  if (!Blockly.Extensions.isRegistered(MACD_CHECK)) {
+    Blockly.Extensions.register(MACD_CHECK, function (this: Blockly.Block) {
+      this.setOnChange(() => {
+        const fast = Number(this.getFieldValue('FAST'))
+        const slow = Number(this.getFieldValue('SLOW'))
+        this.setWarningText(fast >= slow ? 'Fast period must be shorter than slow period.' : null)
+      })
     })
-  })
+  }
 
   Blockly.common.defineBlocksWithJsonArray([
     {
@@ -203,7 +205,7 @@ export function registerBlocks(): void {
       ],
       output: 'Operand',
       style: STYLE.indicator,
-      extensions: ['macd_periods_check'],
+      extensions: [MACD_CHECK],
     },
     {
       type: BlockType.bollinger,
@@ -226,6 +228,28 @@ export function registerBlocks(): void {
   ])
 }
 
+type ToolboxBlock = { kind: 'block', type: string, fields?: Record<string, string | number>, inputs?: Record<string, { block: Omit<ToolboxBlock, 'kind'> }> }
+
+function block(type: string, fields?: ToolboxBlock['fields'], inputs?: ToolboxBlock['inputs']): ToolboxBlock {
+  return { kind: 'block', type, ...(fields && { fields }), ...(inputs && { inputs }) }
+}
+
+/** A ready-made condition, so people can start from a working rule instead of empty sockets. */
+function condition(
+  operator: string,
+  left: { type: string, fields?: ToolboxBlock['fields'] },
+  right: { type: string, fields?: ToolboxBlock['fields'] },
+): ToolboxBlock {
+  return block(BlockType.compare, { OPERATOR: operator }, { LEFT: { block: left }, RIGHT: { block: right } })
+}
+
+const CLOSE = { type: BlockType.price, fields: { FIELD: 'close' } }
+const sma = (period: number) => ({ type: BlockType.sma, fields: { PERIOD: period } })
+const ema = (period: number) => ({ type: BlockType.ema, fields: { PERIOD: period } })
+const rsi = { type: BlockType.rsi, fields: { PERIOD: 14 } }
+const number = (value: number) => ({ type: BlockType.constant, fields: { VALUE: value } })
+
+// Ordered the way a strategy is built: where, when to get in, when to get out, then fine-tuning.
 export const toolbox = {
   kind: 'categoryToolbox',
   contents: [
@@ -233,9 +257,26 @@ export const toolbox = {
       kind: 'category',
       name: 'Market',
       categorystyle: 'market_category',
+      contents: [block(BlockType.instrument), block(BlockType.timeframe)],
+    },
+    {
+      kind: 'category',
+      name: 'Entry & exit',
+      categorystyle: 'action_category',
+      contents: [block(BlockType.entry), block(BlockType.exitRule), block(BlockType.stopLoss), block(BlockType.takeProfit)],
+    },
+    {
+      kind: 'category',
+      name: 'Conditions',
+      categorystyle: 'condition_category',
       contents: [
-        { kind: 'block', type: BlockType.instrument },
-        { kind: 'block', type: BlockType.timeframe },
+        condition('crosses_above', CLOSE, sma(50)),
+        condition('crosses_below', CLOSE, sma(50)),
+        condition('crosses_above', ema(20), sma(50)),
+        condition('crosses_below', ema(20), sma(50)),
+        condition('lt', rsi, number(30)),
+        condition('gt', rsi, number(70)),
+        block(BlockType.compare, { OPERATOR: 'gt' }),
       ],
     },
     {
@@ -243,44 +284,19 @@ export const toolbox = {
       name: 'Indicators',
       categorystyle: 'indicator_category',
       contents: [BlockType.price, BlockType.sma, BlockType.ema, BlockType.rsi, BlockType.macd, BlockType.bollinger, BlockType.constant]
-        .map(type => ({ kind: 'block', type })),
+        .map(type => block(type)),
     },
     {
       kind: 'category',
-      name: 'Conditions',
-      categorystyle: 'condition_category',
-      contents: [
-        {
-          kind: 'block',
-          type: BlockType.compare,
-          inputs: {
-            LEFT: { block: { type: BlockType.price } },
-            RIGHT: { block: { type: BlockType.sma } },
-          },
-        },
-        { kind: 'block', type: BlockType.compare },
-      ],
-    },
-    {
-      kind: 'category',
-      name: 'Logic',
+      name: 'Combine',
       categorystyle: 'logic_category',
-      contents: [BlockType.and, BlockType.or, BlockType.not].map(type => ({ kind: 'block', type })),
+      contents: [block(BlockType.and), block(BlockType.or), block(BlockType.not)],
     },
     {
       kind: 'category',
-      name: 'Actions',
-      categorystyle: 'action_category',
-      contents: [
-        { kind: 'block', type: BlockType.entry },
-        { kind: 'block', type: BlockType.exitRule },
-      ],
-    },
-    {
-      kind: 'category',
-      name: 'Risk',
+      name: 'Position size',
       categorystyle: 'risk_category',
-      contents: [BlockType.stopLoss, BlockType.takeProfit, BlockType.positionSize].map(type => ({ kind: 'block', type })),
+      contents: [block(BlockType.positionSize)],
     },
   ],
 }
@@ -302,8 +318,8 @@ export function createTheme(): Blockly.Theme {
     blockStyles[`${name}_blocks`] = { colourPrimary: colour }
     categoryStyles[`${name}_category`] = { colour }
   }
-  return Blockly.Theme.defineTheme('strategy-lab', {
-    name: 'strategy-lab',
+  return Blockly.Theme.defineTheme('blockstrat', {
+    name: 'blockstrat',
     base: Blockly.Themes.Classic,
     blockStyles: blockStyles as Record<string, Blockly.Theme.BlockStyle>,
     categoryStyles,

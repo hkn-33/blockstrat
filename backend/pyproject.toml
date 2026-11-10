@@ -1,7 +1,7 @@
 [project]
-name = "strategy-lab"
+name = "blockstrat"
 version = "0.1.0"
-description = "Strategy Lab backend: strategy schema, market data and backtests"
+description = "BlockStrat backend: strategy schema, market data and backtests"
 authors = [
     { name = "Jakub Janik", email = "JJanik2k@gmail.com" }
 ]

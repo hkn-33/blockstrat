@@ -4,7 +4,7 @@
     {
       "name": "backend",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["--directory", "backend", "run", "uvicorn", "strategy_lab.api:create_default_app", "--factory", "--port", "8000"],
+      "runtimeArgs": ["--directory", "backend", "run", "uvicorn", "blockstrat.api:create_default_app", "--factory", "--port", "8000"],
       "port": 8000
     },
     {

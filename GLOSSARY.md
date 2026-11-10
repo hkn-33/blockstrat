@@ -1,4 +1,4 @@
-# Strategy Lab
+# BlockStrat
 
 A visual tool for building trading strategies from blocks and testing them on historical market data.
 

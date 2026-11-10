@@ -37,9 +37,11 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 
 ### Folders
 - `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), AI strategy builder (Gemini).
-- `backend/src/strategy_lab/`: the backend package.
+- `backend/src/blockstrat/`: the backend package.
 - `backend/tests/`: API-level tests (pytest) with fixture market data and a fake Gemini client.
-- `frontend/`: Nuxt + Tailwind single-page app: Blockly editor, results, AI chat.
+- `frontend/`: Nuxt + Tailwind app: prerendered landing page (`/`) and the client-only builder panel (`/app`).
+- `frontend/app/pages/`: the landing page and the builder panel.
+- `frontend/app/components/`: builder components (editor, results, AI chat, toolbar) and landing-page pieces (logo, demo blocks, hero).
 - `frontend/app/blocks/`: Blockly block definitions, toolbox and theme.
 - `frontend/app/utils/`: pure converters (blocks ↔ strategy JSON) and strategy files/share links.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.

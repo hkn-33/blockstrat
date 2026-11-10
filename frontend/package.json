@@ -1,5 +1,5 @@
 {
-  "name": "strategy-lab-frontend",
+  "name": "blockstrat-frontend",
   "type": "module",
   "private": true,
   "scripts": {
@@ -8,11 +8,12 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "gen:types": "uv run --project ../backend python -m strategy_lab.export_schema app/types/api.schema.json && json2ts -i app/types/api.schema.json -o app/types/api.ts --unreachableDefinitions --additionalProperties false",
+    "gen:types": "uv run --project ../backend python -m blockstrat.export_schema app/types/api.schema.json && json2ts -i app/types/api.schema.json -o app/types/api.ts --unreachableDefinitions --additionalProperties false",
     "test": "vitest run",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@blockly/continuous-toolbox": "^13.4.0",
     "@tailwindcss/vite": "^4.3.5",
     "blockly": "^13.4.0",
     "lightweight-charts": "^5.2.1",

@@ -1,4 +1,4 @@
-# Strategy Lab
+# BlockStrat
 
 Build a trading strategy from Scratch-style blocks and see immediately how it would have performed on historical crypto data. Describe a strategy in plain words and an AI assistant builds the blocks for you.
 
@@ -13,7 +13,9 @@ Results are simulations on past data, not investment advice.
 ## Architecture
 
 ```
-Nuxt SPA (Vercel)  ──HTTPS──▶  FastAPI (VPS, Docker + Caddy)
+Nuxt (Vercel)      ──HTTPS──▶  FastAPI (VPS, Docker + Caddy)
+  / landing page (prerendered)
+  /app builder:
   Blockly editor                 Strategy schema (Pydantic) ──▶ JSON Schema ──▶ TS types
   blocks ↔ strategy JSON         Binance klines → parquet cache
   lightweight-charts             backtesting.py adapter (ADR 0002)
@@ -27,14 +29,14 @@ Domain terms: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr](docs/adr). Spec 
 Requirements: [uv](https://docs.astral.sh/uv/), Node.js 22+.
 
 ```bash
-cd backend && uv run uvicorn strategy_lab.api:create_default_app --factory --port 8000
+cd backend && uv run uvicorn blockstrat.api:create_default_app --factory --port 8000
 ```
 
 ```bash
 cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:3000. The backend downloads Binance price history on first start (about a minute for all instruments) and caches it in `backend/data/`. For the AI chat, set `GEMINI_API_KEY` before starting the backend.
+Open http://localhost:3000 for the landing page, or http://localhost:3000/app for the builder. The backend downloads Binance price history on first start (about a minute for all instruments) and caches it in `backend/data/`. For the AI chat, set `GEMINI_API_KEY` before starting the backend.
 
 ## Tests
 
