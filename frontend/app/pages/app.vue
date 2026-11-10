@@ -103,9 +103,9 @@ function runFullBacktest(): void {
 
 <template>
   <div class="flex h-dvh flex-col">
-    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2">
+    <header class="flex flex-wrap items-center justify-between gap-3 border-b border-[#dde6e9] bg-white px-4 py-2.5">
       <div class="flex items-center gap-3">
-        <NuxtLink to="/" class="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+        <NuxtLink to="/" class="rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indicator">
           <BrandLogo />
         </NuxtLink>
         <h1 class="hidden text-sm text-slate-500 md:block">
@@ -125,21 +125,21 @@ function runFullBacktest(): void {
         <button
           v-if="isEmpty"
           type="button"
-          class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:bg-slate-700"
+          class="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-petrol"
           @click="openStrategy(EXAMPLE_STRATEGY)"
         >
           Load an example strategy
         </button>
       </div>
 
-      <aside class="flex min-h-0 flex-col gap-3 overflow-y-auto bg-slate-50 p-4">
-        <nav class="flex gap-1 rounded-xl bg-slate-100 p-1 text-sm font-semibold" aria-label="Panels">
+      <aside class="flex min-h-0 flex-col gap-3 overflow-y-auto bg-[#f7fafb] p-4">
+        <nav class="flex gap-0.5 rounded-xl bg-ink/[0.07] p-[3px] text-sm font-bold" aria-label="Panels">
           <button
             v-for="tab in (['results', 'ai'] as const)"
             :key="tab"
             type="button"
             class="flex-1 rounded-lg px-3 py-1.5 transition-colors"
-            :class="activeTab === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'"
+            :class="activeTab === tab ? 'bg-white text-ink shadow-sm' : 'text-slate-500 hover:text-ink'"
             @click="activeTab = tab"
           >
             {{ tab === 'results' ? 'Result' : 'Describe it to AI' }}
@@ -155,7 +155,7 @@ function runFullBacktest(): void {
             :duration-ms="backtest.durationMs.value"
             @full-backtest="runFullBacktest"
           />
-          <details class="rounded-2xl bg-white ring-1 ring-slate-200">
+          <details class="rounded-[20px] bg-white ring-1 ring-[#dde6e9]">
             <summary class="cursor-pointer px-4 py-3 text-sm text-slate-600">
               <span class="font-semibold text-slate-700">Trading costs:</span>
               {{ execution.commission_pct }}% fee, {{ execution.slippage_bps }} bps slippage

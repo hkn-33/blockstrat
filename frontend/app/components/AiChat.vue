@@ -63,7 +63,7 @@ function apply(): void {
           v-for="example in EXAMPLES"
           :key="example"
           type="button"
-          class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-600 hover:border-blue-300 hover:bg-blue-50"
+          class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-600 hover:border-petrol/40 hover:bg-canvas"
           @click="send(example)"
         >
           {{ example }}
@@ -73,7 +73,7 @@ function apply(): void {
         v-for="(message, index) in messages"
         :key="index"
         class="max-w-[85%] rounded-2xl px-3 py-2 text-sm"
-        :class="message.role === 'user' ? 'self-end bg-blue-600 text-white' : 'self-start bg-white text-slate-800 ring-1 ring-slate-200'"
+        :class="message.role === 'user' ? 'self-end bg-indicator text-white' : 'self-start bg-white text-slate-800 ring-1 ring-slate-200'"
       >
         {{ message.text }}
       </p>
@@ -82,15 +82,15 @@ function apply(): void {
       </p>
     </div>
 
-    <div v-if="pending" class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm">
-      <p class="font-semibold text-blue-900">
+    <div v-if="pending" class="rounded-2xl bg-canvas p-3 text-sm ring-1 ring-petrol/15">
+      <p class="font-semibold text-ink">
         Replace the strategy in the editor with this one?
       </p>
       <p v-if="pending.unsupported.length" class="mt-1 text-amber-800">
         Left out (the blocks cannot express it): {{ pending.unsupported.join(', ') }}
       </p>
       <div class="mt-2 flex gap-2">
-        <button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white hover:bg-blue-500" @click="apply">
+        <button type="button" class="rounded-xl bg-lime px-3 py-1.5 font-bold text-ink hover:bg-[#d6f87c]" @click="apply">
           Replace
         </button>
         <button type="button" class="rounded-lg px-3 py-1.5 font-semibold text-slate-600 hover:bg-white" @click="pending = null">
@@ -114,7 +114,7 @@ function apply(): void {
       >
       <button
         type="submit"
-        class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+        class="rounded-xl bg-ink px-3 py-2 text-sm font-bold text-white hover:bg-petrol disabled:opacity-50"
         :disabled="isThinking || !input.trim()"
       >
         Send

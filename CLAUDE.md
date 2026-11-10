@@ -38,13 +38,19 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 ### Folders
 - `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), AI strategy builder (Gemini).
 - `backend/src/blockstrat/`: the backend package.
+- `backend/scripts/`: one-off data scripts (the landing page's precomputed demo backtests).
 - `backend/tests/`: API-level tests (pytest) with fixture market data and a fake Gemini client.
 - `frontend/`: Nuxt + Tailwind app: prerendered landing page (`/`) and the client-only builder panel (`/app`).
 - `frontend/app/pages/`: the landing page and the builder panel.
-- `frontend/app/components/`: builder components (editor, results, AI chat, toolbar) and landing-page pieces (logo, demo blocks, hero).
+- `frontend/app/components/`: builder components (editor, results, AI chat, toolbar) and shared pieces (logo, icons, counting number).
 - `frontend/app/blocks/`: Blockly block definitions, toolbox and theme.
+- `frontend/app/components/landing/`: landing-page sections and pieces (strategy blocks, TradingView-style charts, pinned steps, AI demo, live demo).
+- `frontend/app/assets/icons/`: Lucide interface glyphs, inlined by `UiIcon`.
+- `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).
+- `frontend/public/diagrams/`: the taste skill's diagram engine and its icons, for the landing page's data-flow diagram.
 - `frontend/app/utils/`: pure converters (blocks ↔ strategy JSON) and strategy files/share links.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.
+- `frontend/public/brand-icons/`: real brand and coin logos (fetched with the taste skill's icons.mjs, credits in its JSON).
 - `frontend/test/`: Vitest tests of the pure converters.
 - `deploy/`: Docker Compose + Caddy for the backend on a VPS.
 - `docs/`: ADRs, deployment guide, agent docs.

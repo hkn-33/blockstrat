@@ -15,6 +15,23 @@ class StaticContinuousToolbox extends ContinuousToolbox {
   override refreshSelection(): void {}
 }
 
+/** Zelos with softer corners and rectangular fields, to match the landing page's blocks. */
+class BlockStratConstants extends Blockly.zelos.ConstantProvider {
+  constructor() {
+    super()
+    this.CORNER_RADIUS = 2.5 * this.GRID_UNIT
+    this.FIELD_BORDER_RECT_RADIUS = 6
+    this.FIELD_TEXT_FONTWEIGHT = '700'
+    this.SELECTED_GLOW_COLOUR = '#c8f25a'
+  }
+}
+
+class BlockStratRenderer extends Blockly.zelos.Renderer {
+  protected override makeConstants_(): Blockly.zelos.ConstantProvider {
+    return new BlockStratConstants()
+  }
+}
+
 const container = ref<HTMLDivElement | null>(null)
 let workspace: Blockly.WorkspaceSvg | null = null
 let isLoading = false
@@ -24,6 +41,7 @@ onMounted(() => {
   // Registering twice throws, and Blockly's registry survives hot reloads.
   if (!Blockly.registry.hasItem(Blockly.registry.Type.TOOLBOX, 'ContinuousToolbox')) registerContinuousToolbox()
   Blockly.registry.register(Blockly.registry.Type.TOOLBOX, 'StaticContinuousToolbox', StaticContinuousToolbox, true)
+  Blockly.registry.register(Blockly.registry.Type.RENDERER, 'blockstrat', BlockStratRenderer, true)
   workspace = Blockly.inject(container.value!, {
     toolbox,
     // Every block stays visible in one scrolling list; the category names jump to their group.
@@ -33,7 +51,9 @@ onMounted(() => {
       toolbox: 'StaticContinuousToolbox',
     },
     theme: createTheme(),
-    renderer: 'zelos',
+    renderer: 'blockstrat',
+    // The editor's dotted canvas, the same texture the landing page uses behind its product sections.
+    grid: { spacing: 22, length: 1.5, colour: '#c5d6db', snap: false },
     // Dragging a block back onto the list deletes it, like in Scratch.
     trashcan: false,
     sounds: false,

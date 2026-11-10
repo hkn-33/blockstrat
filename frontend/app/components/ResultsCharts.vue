@@ -19,11 +19,11 @@ const props = defineProps<{ result: BacktestResult }>()
 const priceContainer = ref<HTMLDivElement | null>(null)
 const equityContainer = ref<HTMLDivElement | null>(null)
 
-const GREEN = '#059669'
-const RED = '#dc2626'
+const GREEN = '#16a37a'
+const RED = '#ec5b4d'
 const CHART_OPTIONS = {
   autoSize: true,
-  layout: { background: { type: ColorType.Solid, color: '#ffffff' }, textColor: '#475569', fontFamily: 'Inter, sans-serif', attributionLogo: false },
+  layout: { background: { type: ColorType.Solid, color: '#ffffff' }, textColor: '#475569', fontFamily: 'Satoshi, sans-serif', attributionLogo: false },
   grid: { vertLines: { color: '#f1f5f9' }, horzLines: { color: '#f1f5f9' } },
   rightPriceScale: { borderVisible: false },
   // The default minimum bar spacing (0.5 px) is too wide to fit thousands of bars into the panel.
@@ -46,7 +46,7 @@ onMounted(() => {
 
   equityChart = createChart(equityContainer.value!, CHART_OPTIONS)
   buyAndHoldLine = equityChart.addSeries(LineSeries, { color: '#94a3b8', lineWidth: 2, title: 'Buy & hold' })
-  equityLine = equityChart.addSeries(LineSeries, { color: '#2563eb', lineWidth: 2, title: 'Strategy' })
+  equityLine = equityChart.addSeries(LineSeries, { color: '#3d6ef5', lineWidth: 2, title: 'Strategy' })
 
   // Bars and curves share the same timestamps, so the two charts scroll and zoom together.
   linkTimeScales(priceChart, equityChart)
@@ -162,7 +162,7 @@ function barAtOrBefore(barTimes: number[], time: number): number {
   <div class="flex flex-col gap-2">
     <div ref="priceContainer" class="h-56 w-full" />
     <div class="flex items-center gap-4 px-1 text-xs text-slate-500">
-      <span class="flex items-center gap-1"><span class="h-0.5 w-4 bg-blue-600" /> Strategy equity</span>
+      <span class="flex items-center gap-1"><span class="h-0.5 w-4 bg-indicator" /> Strategy equity</span>
       <span class="flex items-center gap-1"><span class="h-0.5 w-4 bg-slate-400" /> Buy & hold</span>
     </div>
     <div ref="equityContainer" class="h-40 w-full" />

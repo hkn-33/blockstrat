@@ -125,7 +125,7 @@ async function copyShareLink(): Promise<void> {
     <button type="button" class="toolbar-button" :aria-expanded="popover === 'open'" @click="toggle('open')">
       Open ({{ savedNames.length }})
     </button>
-    <button type="button" class="rounded-lg bg-blue-600 px-3 py-1.5 font-semibold text-white hover:bg-blue-500" @click="copyShareLink">
+    <button type="button" class="rounded-xl bg-lime px-3 py-1.5 font-bold text-ink hover:bg-[#d6f87c]" @click="copyShareLink">
       Share
     </button>
     <button type="button" class="toolbar-button" :aria-expanded="popover === 'more'" aria-label="More actions" @click="toggle('more')">
@@ -160,7 +160,7 @@ async function copyShareLink(): Promise<void> {
           maxlength="60"
           class="min-w-0 flex-1 rounded-md border border-slate-300 px-2 py-1"
         >
-        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1 font-semibold text-white" :disabled="!saveName.trim()">
+        <button type="submit" class="rounded-lg bg-ink px-3 py-1 font-bold text-white" :disabled="!saveName.trim()">
           {{ saveName.trim() in library ? 'Replace' : 'Save' }}
         </button>
       </div>
@@ -196,7 +196,7 @@ async function copyShareLink(): Promise<void> {
     <p
       v-if="notice"
       class="absolute right-0 top-full z-30 mt-2 rounded-lg px-3 py-2 text-xs font-medium shadow"
-      :class="notice.isError ? 'bg-red-600 text-white' : 'bg-slate-900 text-white'"
+      :class="notice.isError ? 'bg-loss text-white' : 'bg-ink text-white'"
       role="status"
     >
       {{ notice.text }}
@@ -207,7 +207,7 @@ async function copyShareLink(): Promise<void> {
 <style scoped>
 .toolbar-button {
   cursor: pointer;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
   background: #ffffff;
   padding: 0.375rem 0.75rem;

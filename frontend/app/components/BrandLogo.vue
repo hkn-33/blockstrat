@@ -3,12 +3,56 @@ withDefaults(defineProps<{ inverted?: boolean }>(), { inverted: false })
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-2">
-    <!-- Two stacked blocks, the same notched shape as the editor's statement blocks. -->
-    <svg viewBox="0 0 28 28" class="h-7 w-7" aria-hidden="true">
-      <path d="M3 4a3 3 0 0 1 3-3h4l2 2.5h4L18 1h4a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3h-4l-2 2.5h-4L10 13H6a3 3 0 0 1-3-3z" fill="#2563eb" />
-      <path d="M3 18a3 3 0 0 1 3-3h4l2 2.5h4L18 15h4a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z" fill="#059669" />
+  <span class="brand-logo" :class="{ 'is-inverted': inverted }">
+    <!-- Three snapping blocks that rise like a chart: building a strategy and its result in one mark. -->
+    <svg viewBox="0 0 32 32" class="brand-logo__mark" aria-hidden="true">
+      <rect x="2" y="19" width="8" height="11" rx="2" class="block block--low" />
+      <rect x="4.5" y="16.5" width="3" height="3" rx="1" class="block block--low" />
+      <rect x="12" y="12" width="8" height="18" rx="2" class="block block--mid" />
+      <rect x="14.5" y="9.5" width="3" height="3" rx="1" class="block block--mid" />
+      <rect x="22" y="5" width="8" height="25" rx="2" class="block block--top" />
+      <rect x="24.5" y="2.5" width="3" height="3" rx="1" class="block block--top" />
     </svg>
-    <span class="font-display text-xl font-extrabold tracking-tight" :class="inverted ? 'text-white' : 'text-ink'">BlockStrat</span>
+    <span class="brand-logo__word">BlockStrat</span>
   </span>
 </template>
+
+<style scoped>
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--logo-ink, #0d1b24);
+}
+
+.brand-logo.is-inverted {
+  color: #ffffff;
+}
+
+.brand-logo__mark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.block {
+  fill: currentColor;
+}
+
+.block--low {
+  opacity: 0.35;
+}
+
+.block--mid {
+  opacity: 0.65;
+}
+
+.block--top {
+  fill: var(--logo-accent, #2f6bff);
+}
+
+.brand-logo__word {
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+</style>
