@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import type { StrategyBlock } from './BlockStack.vue'
-
 // "How it works" as a pinned section: the page holds still while scrolling walks through the three steps,
 // and the picture on the right changes with each one. On narrow screens the steps simply stack.
 const STEPS = [
-  { title: 'Pick a market and a pace', text: 'Ten crypto pairs from Binance, checked every hour, every four hours or once a day.' },
-  { title: 'Snap the rules together', text: 'Drop a ready condition into place, then change its numbers. RSI, moving averages, MACD, Bollinger Bands.' },
-  { title: 'Read the verdict', text: 'Your balance over nine years, every trade, and whether it beat simply holding the coin.' },
+  { title: 'Pick a market and a pace', text: 'Ten crypto pairs from Binance, checked every hour, every four hours or once a day' },
+  { title: 'Snap the rules together', text: 'Drop a ready condition into place and change its numbers: RSI, moving averages, MACD, Bollinger Bands' },
+  { title: 'Read the verdict', text: 'Every trade on the chart, your balance underneath, and whether it beat simply holding the coin' },
 ]
 
 const MARKETS = [
@@ -16,13 +14,9 @@ const MARKETS = [
   { icon: 'binance', pair: 'BNB/USDT', name: 'BNB' },
 ]
 
-const BLOCKS: StrategyBlock[] = [
-  { tone: 'entry', label: 'Buy when', parts: ['EMA', { value: '20' }, 'crosses above SMA', { value: '50' }] },
-  { tone: 'exit', label: 'Sell when', parts: ['EMA', { value: '20' }, 'crosses below SMA', { value: '50' }] },
-  { tone: 'risk', label: 'Stop-loss', parts: [{ value: '8%' }, 'below entry'] },
-]
+const RULES = demoRules('combo', 5)
 
-const run = demoRun('trend', 'BTCUSDT', 5)
+const run = demoRun('combo', 'SOLUSDT', 5)
 const section = ref<HTMLElement | null>(null)
 const active = ref(0)
 
@@ -50,7 +44,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
       <div class="wrap grid gap-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:items-center">
         <div class="min-w-0">
           <h2 id="steps-title" class="section-title">
-            From idea to verdict in three steps.
+            From idea to verdict in three steps
           </h2>
           <ol class="mt-10 grid gap-2">
             <li v-for="(step, index) in STEPS" :key="step.title" class="step" :class="{ 'is-active': index === active }">
@@ -77,12 +71,12 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
               </div>
               <ul class="mt-3 grid gap-1">
                 <li v-for="(market, index) in MARKETS" :key="market.pair" class="market" :class="{ 'is-on': index === 1 }">
-                  <img :src="`/brand-icons/${market.icon}.svg`" alt="" class="h-8 w-8">
+                  <img :src="`/brand-icons/${market.icon}.svg`" alt="" class="coin">
                   <span>
                     <span class="block font-bold">{{ market.pair }}</span>
                     <span class="block text-[13px] text-[var(--muted)]">{{ market.name }} · since 2017</span>
                   </span>
-                  <UiIcon v-if="index === 1" name="check" class="ml-auto text-[var(--gain)]" />
+                  <UiIcon v-if="index === 1" name="check" class="ml-auto text-[var(--color-gain)]" />
                 </li>
               </ul>
               <div class="mt-4 flex items-center justify-between gap-3 text-[14px] text-[var(--muted)]">
@@ -92,28 +86,14 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
             </div>
 
             <div v-else-if="active === 1" key="blocks" class="panel panel--blocks">
-              <LandingBlockStack market="BTC/USDT" timeframe="4 hours" :blocks="BLOCKS" entrance />
+              <LandingRuleBuilder market="SOLUSDT" timeframe="4 hours" :entry="RULES.entry" :exit="RULES.exit" theme="auto" entrance drop-slot />
             </div>
 
-            <div v-else key="verdict" class="panel">
-              <div class="flex items-end justify-between gap-4">
-                <div>
-                  <p class="text-[13px] text-[var(--muted)]">
-                    Trend on BTC, $10,000 since 2017
-                  </p>
-                  <p class="text-[34px] font-bold tabular-nums tracking-[-0.03em] text-[var(--gain)]">
-                    +970%
-                  </p>
-                </div>
-                <p class="flex items-center gap-1.5 text-[14px] font-bold text-[var(--loss)]">
-                  <UiIcon name="x" /> Holding BTC made +1,611%
-                </p>
-              </div>
-              <div class="mt-3 h-[260px]">
-                <ClientOnly>
-                  <LandingEquityChart :run="run" accent="#16a37a" />
-                </ClientOnly>
-              </div>
+            <div v-else key="verdict" class="panel panel--dark">
+              <ClientOnly>
+                <LandingTvChart market="SOLUSDT" :run="run" :height="280" />
+              </ClientOnly>
+              <LandingStrategyTester market="SOLUSDT" :run="run" />
             </div>
           </Transition>
         </div>
@@ -151,16 +131,16 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 1rem;
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 1rem 1.1rem;
   color: var(--muted);
   transition: background-color 300ms, color 300ms;
 }
 
 .step.is-active {
-  background: #ffffff;
+  background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 2px rgb(13 27 36 / 0.05), 0 16px 32px -24px rgb(13 27 36 / 0.4);
+  box-shadow: 0 1px 2px var(--tint), 0 16px 32px -24px rgb(13 27 36 / 0.4);
 }
 
 .step-number {
@@ -169,14 +149,14 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   height: 2rem;
   place-items: center;
   border-radius: 10px;
-  background: rgb(13 27 36 / 0.06);
+  background: var(--tint);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .step.is-active .step-number {
-  background: var(--petrol);
-  color: var(--lime);
+  background: var(--color-petrol);
+  color: var(--color-lime);
 }
 
 .step-text {
@@ -200,24 +180,34 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   display: grid;
   min-height: 26rem;
   align-items: center;
-  border-radius: 32px;
-  background: linear-gradient(150deg, #dff3ee 0%, #e6ecff 60%, #f3f8df 100%);
-  padding: clamp(1.25rem, 3vw, 2.5rem);
+  padding: 0;
 }
 
 .panel {
-  border-radius: 22px;
-  background: rgb(255 255 255 / 0.85);
+  border-radius: 16px;
+  background: var(--surface);
   padding: 1.25rem;
-  box-shadow: inset 0 1px 0 #ffffff, 0 30px 60px -36px rgb(13 27 36 / 0.45);
-  backdrop-filter: blur(20px);
+  box-shadow: 0 1px 2px var(--tint), 0 20px 40px -28px rgb(13 27 36 / 0.4);
+}
+
+.panel--dark {
+  overflow: hidden;
+  background: #0b2125;
+  padding: 0;
 }
 
 .panel--blocks {
   background: transparent;
   padding: 0;
   box-shadow: none;
-  backdrop-filter: none;
+}
+
+.coin {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 2px;
 }
 
 .search {
@@ -225,7 +215,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   align-items: center;
   gap: 0.6rem;
   border-radius: 12px;
-  background: rgb(13 27 36 / 0.05);
+  background: var(--tint);
   padding: 0.7rem 0.9rem;
   color: var(--muted);
   font-size: 15px;
@@ -235,7 +225,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   width: 2px;
   height: 1.1em;
   margin-left: -0.45rem;
-  background: var(--blue);
+  background: var(--ink);
   animation: blink 900ms steps(1) infinite;
 }
 
@@ -255,33 +245,36 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 }
 
 .market.is-on {
-  background: #ffffff;
-  box-shadow: 0 0 0 1.5px var(--blue), 0 10px 20px -14px rgb(47 107 255 / 0.6);
+  background: var(--surface);
+  box-shadow: 0 0 0 1.5px var(--color-petrol), 0 10px 20px -14px rgb(14 63 71 / 0.5);
 }
 
 .segmented {
   display: inline-flex;
   gap: 2px;
   border-radius: 10px;
-  background: rgb(13 27 36 / 0.07);
+  background: var(--tint);
   padding: 3px;
 }
 
 .segmented span {
-  border-radius: 8px;
+  border-radius: 7px;
   padding: 0.3rem 0.7rem;
   font-weight: 600;
 }
 
 .segmented .is-on {
-  background: #ffffff;
+  background: var(--surface);
   color: var(--ink);
   box-shadow: 0 1px 2px rgb(13 27 36 / 0.12);
 }
 
-.swap-enter-active,
+.swap-enter-active {
+  transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1), transform 260ms cubic-bezier(0.16, 1, 0.3, 1), filter 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .swap-leave-active {
-  transition: opacity 280ms ease, transform 280ms ease, filter 280ms ease;
+  transition: opacity 200ms ease-in, transform 200ms ease-in, filter 200ms ease-in;
 }
 
 .swap-enter-from {
@@ -300,6 +293,10 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   .swap-enter-active,
   .swap-leave-active {
     transition: none;
+  }
+
+  .search-caret {
+    animation: none;
   }
 }
 </style>

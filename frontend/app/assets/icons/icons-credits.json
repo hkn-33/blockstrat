@@ -22,28 +22,6 @@
     "trademark": false
   },
   {
-    "file": "ui-cpu.svg",
-    "icon": "ui:cpu",
-    "name": "Cpu",
-    "kind": "line",
-    "source": "@iconify-json/lucide@1.2.100",
-    "author": "Lucide Contributors",
-    "licence": "ISC",
-    "url": "https://github.com/lucide-icons/lucide",
-    "trademark": false
-  },
-  {
-    "file": "ui-list-checks.svg",
-    "icon": "ui:list-checks",
-    "name": "List Checks",
-    "kind": "line",
-    "source": "@iconify-json/lucide@1.2.100",
-    "author": "Lucide Contributors",
-    "licence": "ISC",
-    "url": "https://github.com/lucide-icons/lucide",
-    "trademark": false
-  },
-  {
     "file": "ui-log-in.svg",
     "icon": "ui:log-in",
     "name": "Log In",
@@ -66,9 +44,9 @@
     "trademark": false
   },
   {
-    "file": "ui-mouse-pointer-2.svg",
-    "icon": "ui:mouse-pointer-2",
-    "name": "Mouse Pointer",
+    "file": "ui-moon.svg",
+    "icon": "ui:moon",
+    "name": "Moon",
     "kind": "line",
     "source": "@iconify-json/lucide@1.2.100",
     "author": "Lucide Contributors",
@@ -88,20 +66,9 @@
     "trademark": false
   },
   {
-    "file": "ui-send.svg",
-    "icon": "ui:send",
-    "name": "Send",
-    "kind": "line",
-    "source": "@iconify-json/lucide@1.2.100",
-    "author": "Lucide Contributors",
-    "licence": "ISC",
-    "url": "https://github.com/lucide-icons/lucide",
-    "trademark": false
-  },
-  {
-    "file": "ui-shield.svg",
-    "icon": "ui:shield",
-    "name": "Shield",
+    "file": "ui-sun.svg",
+    "icon": "ui:sun",
+    "name": "Sun",
     "kind": "line",
     "source": "@iconify-json/lucide@1.2.100",
     "author": "Lucide Contributors",

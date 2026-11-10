@@ -6,11 +6,15 @@ import {
   createChart,
   createSeriesMarkers,
   type IChartApi,
+  type ISeriesApi,
+  type IPriceLine,
+  type ISeriesMarkersPluginApi,
+  type Time,
   type UTCTimestamp,
 } from 'lightweight-charts'
 
-// A TradingView-style close-up: the signal fires on one candle's close, the order fills at the next open.
-// The candles are an illustration, not market data.
+// A close-up in the same chart style as the hero: the signal fires on one candle's close, the order fills
+// at the next open. The candles are an illustration, not market data.
 const CANDLES: [number, number, number, number][] = [
   [100, 104, 98, 103], [103, 106, 101, 102], [102, 103, 97, 98], [98, 100, 95, 96], [96, 99, 94, 98],
   [98, 101, 96, 97], [97, 98, 92, 93], [93, 95, 90, 94], [94, 99, 93, 98], [98, 103, 97, 102],
@@ -21,50 +25,65 @@ const DAY = 86_400
 const START = 1_735_689_600
 
 const container = ref<HTMLDivElement | null>(null)
+const resolvedTheme = useResolvedChartTheme(() => 'auto')
 let chart: IChartApi | undefined
+let series: ISeriesApi<'Candlestick'> | undefined
+let markers: ISeriesMarkersPluginApi<Time> | undefined
+let fillLine: IPriceLine | undefined
+
+const time = (index: number) => (START + index * DAY) as UTCTimestamp
+
+function applyTheme(): void {
+  if (!chart || !series || !markers) return
+  const colours = chartPalette(resolvedTheme.value)
+  chart.applyOptions({
+    layout: { textColor: colours.text },
+    grid: { vertLines: { color: colours.grid }, horzLines: { color: colours.grid } },
+  })
+  series.applyOptions({ upColor: colours.up, downColor: colours.down, wickUpColor: colours.up, wickDownColor: colours.down })
+  markers.setMarkers([
+    { time: time(SIGNAL_INDEX), position: 'aboveBar', color: colours.text, shape: 'circle', text: 'Signal on close' },
+    { time: time(SIGNAL_INDEX + 1), position: 'belowBar', color: colours.accent, shape: 'arrowUp', text: 'Bought at the next open' },
+  ])
+  if (fillLine) series.removePriceLine(fillLine)
+  fillLine = series.createPriceLine({
+    price: CANDLES[SIGNAL_INDEX + 1]![0],
+    color: colours.accent,
+    lineWidth: 1,
+    lineStyle: LineStyle.Dashed,
+    axisLabelVisible: true,
+    title: 'Fill',
+  })
+}
 
 onMounted(() => {
   chart = createChart(container.value!, {
     autoSize: true,
     layout: {
       background: { type: ColorType.Solid, color: 'transparent' },
-      textColor: '#6a7b85',
       fontFamily: 'Satoshi, ui-sans-serif, system-ui, sans-serif',
       fontSize: 11,
       attributionLogo: false,
     },
-    grid: { vertLines: { color: 'rgba(13,27,36,0.05)' }, horzLines: { color: 'rgba(13,27,36,0.05)' } },
-    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.18, bottom: 0.18 } },
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.2, bottom: 0.2 } },
     timeScale: { borderVisible: false, visible: false },
+    localization: { locale: 'en-US' },
     handleScroll: false,
     handleScale: false,
   })
-  const series = chart.addSeries(CandlestickSeries, {
-    upColor: '#16a37a',
-    downColor: '#ec5b4d',
+  series = chart.addSeries(CandlestickSeries, {
     borderVisible: false,
-    wickUpColor: '#16a37a',
-    wickDownColor: '#ec5b4d',
     priceLineVisible: false,
     lastValueVisible: false,
     autoscaleInfoProvider: () => ({ priceRange: { minValue: 89, maxValue: 116 } }),
   })
-  const time = (index: number) => (START + index * DAY) as UTCTimestamp
   series.setData(CANDLES.map(([open, high, low, close], index) => ({ time: time(index), open, high, low, close })))
-  createSeriesMarkers(series, [
-    { time: time(SIGNAL_INDEX), position: 'aboveBar', color: '#0d1b24', shape: 'circle', text: 'Signal on close' },
-    { time: time(SIGNAL_INDEX + 1), position: 'belowBar', color: '#2f6bff', shape: 'arrowUp', text: 'Bought at open' },
-  ])
-  series.createPriceLine({
-    price: CANDLES[SIGNAL_INDEX + 1]![0],
-    color: '#2f6bff',
-    lineWidth: 1,
-    lineStyle: LineStyle.Dashed,
-    axisLabelVisible: true,
-    title: 'Fill',
-  })
+  markers = createSeriesMarkers(series, [])
+  applyTheme()
   chart.timeScale().fitContent()
 })
+
+watch(resolvedTheme, applyTheme)
 
 onBeforeUnmount(() => chart?.remove())
 </script>
