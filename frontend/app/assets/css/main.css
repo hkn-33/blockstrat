@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body,
+#__nuxt {
+  height: 100%;
+}
+
+body {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Blockly's toolbox inherits the app font and gets a bit more breathing room. */
+.blocklyToolboxCategory {
+  padding: 4px 0;
+}
+
+.blocklyTreeLabel {
+  font-family: var(--font-sans);
+  font-weight: 600;
+}

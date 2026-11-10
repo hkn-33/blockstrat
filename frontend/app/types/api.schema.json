@@ -1,0 +1,1198 @@
+{
+  "$defs": {
+    "AiBuildFailed": {
+      "properties": {
+        "status": {
+          "enum": [
+            "rate_limited",
+            "unavailable",
+            "invalid"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "message"
+      ],
+      "title": "AiBuildFailed",
+      "type": "object"
+    },
+    "AiBuildOk": {
+      "properties": {
+        "status": {
+          "const": "ok",
+          "default": "ok",
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StrategyDraft"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unsupported": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "message",
+        "strategy",
+        "unsupported"
+      ],
+      "title": "AiBuildOk",
+      "type": "object"
+    },
+    "AiBuildRequest": {
+      "properties": {
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/AiMessage"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "type": "array"
+        },
+        "current_strategy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StrategyDraft"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "messages"
+      ],
+      "title": "AiBuildRequest",
+      "type": "object"
+    },
+    "AiMessage": {
+      "properties": {
+        "role": {
+          "enum": [
+            "user",
+            "assistant"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "text"
+      ],
+      "title": "AiMessage",
+      "type": "object"
+    },
+    "AllOf": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "and",
+          "default": "and",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "and": "#/$defs/AllOf",
+                "compare": "#/$defs/Comparison",
+                "not": "#/$defs/Negation",
+                "or": "#/$defs/AnyOf"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Comparison"
+              },
+              {
+                "$ref": "#/$defs/AllOf"
+              },
+              {
+                "$ref": "#/$defs/AnyOf"
+              },
+              {
+                "$ref": "#/$defs/Negation"
+              }
+            ]
+          },
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "conditions"
+      ],
+      "title": "AllOf",
+      "type": "object"
+    },
+    "AnyOf": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "or",
+          "default": "or",
+          "type": "string"
+        },
+        "conditions": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "and": "#/$defs/AllOf",
+                "compare": "#/$defs/Comparison",
+                "not": "#/$defs/Negation",
+                "or": "#/$defs/AnyOf"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/Comparison"
+              },
+              {
+                "$ref": "#/$defs/AllOf"
+              },
+              {
+                "$ref": "#/$defs/AnyOf"
+              },
+              {
+                "$ref": "#/$defs/Negation"
+              }
+            ]
+          },
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "conditions"
+      ],
+      "title": "AnyOf",
+      "type": "object"
+    },
+    "BacktestRequest": {
+      "properties": {
+        "strategy": {
+          "$ref": "#/$defs/StrategyDraft"
+        },
+        "mode": {
+          "default": "preview",
+          "enum": [
+            "preview",
+            "full"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "strategy"
+      ],
+      "title": "BacktestRequest",
+      "type": "object"
+    },
+    "BacktestResult": {
+      "properties": {
+        "mode": {
+          "enum": [
+            "preview",
+            "full"
+          ],
+          "type": "string"
+        },
+        "bar_count": {
+          "type": "integer"
+        },
+        "start_time": {
+          "type": "integer"
+        },
+        "end_time": {
+          "type": "integer"
+        },
+        "bars": {
+          "items": {
+            "$ref": "#/$defs/Bar"
+          },
+          "type": "array"
+        },
+        "equity": {
+          "items": {
+            "$ref": "#/$defs/TimePoint"
+          },
+          "type": "array"
+        },
+        "buy_and_hold": {
+          "items": {
+            "$ref": "#/$defs/TimePoint"
+          },
+          "type": "array"
+        },
+        "trades": {
+          "items": {
+            "$ref": "#/$defs/Trade"
+          },
+          "type": "array"
+        },
+        "metrics": {
+          "$ref": "#/$defs/Metrics"
+        }
+      },
+      "required": [
+        "mode",
+        "bar_count",
+        "start_time",
+        "end_time",
+        "bars",
+        "equity",
+        "buy_and_hold",
+        "trades",
+        "metrics"
+      ],
+      "title": "BacktestResult",
+      "type": "object"
+    },
+    "Bar": {
+      "properties": {
+        "time": {
+          "type": "integer"
+        },
+        "open": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        },
+        "low": {
+          "type": "number"
+        },
+        "close": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "time",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "title": "Bar",
+      "type": "object"
+    },
+    "BollingerOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "bollinger",
+          "default": "bollinger",
+          "type": "string"
+        },
+        "period": {
+          "default": 20,
+          "maximum": 1000,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "std_dev": {
+          "default": 2.0,
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "type": "number"
+        },
+        "band": {
+          "default": "middle",
+          "enum": [
+            "upper",
+            "middle",
+            "lower"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "period",
+        "std_dev",
+        "band"
+      ],
+      "title": "BollingerOperand",
+      "type": "object"
+    },
+    "Comparison": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "compare",
+          "default": "compare",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "gt",
+            "lt",
+            "crosses_above",
+            "crosses_below"
+          ],
+          "type": "string"
+        },
+        "left": {
+          "discriminator": {
+            "mapping": {
+              "bollinger": "#/$defs/BollingerOperand",
+              "constant": "#/$defs/ConstantOperand",
+              "ema": "#/$defs/EmaOperand",
+              "macd": "#/$defs/MacdOperand",
+              "price": "#/$defs/PriceOperand",
+              "rsi": "#/$defs/RsiOperand",
+              "sma": "#/$defs/SmaOperand"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PriceOperand"
+            },
+            {
+              "$ref": "#/$defs/SmaOperand"
+            },
+            {
+              "$ref": "#/$defs/EmaOperand"
+            },
+            {
+              "$ref": "#/$defs/RsiOperand"
+            },
+            {
+              "$ref": "#/$defs/MacdOperand"
+            },
+            {
+              "$ref": "#/$defs/BollingerOperand"
+            },
+            {
+              "$ref": "#/$defs/ConstantOperand"
+            }
+          ]
+        },
+        "right": {
+          "discriminator": {
+            "mapping": {
+              "bollinger": "#/$defs/BollingerOperand",
+              "constant": "#/$defs/ConstantOperand",
+              "ema": "#/$defs/EmaOperand",
+              "macd": "#/$defs/MacdOperand",
+              "price": "#/$defs/PriceOperand",
+              "rsi": "#/$defs/RsiOperand",
+              "sma": "#/$defs/SmaOperand"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PriceOperand"
+            },
+            {
+              "$ref": "#/$defs/SmaOperand"
+            },
+            {
+              "$ref": "#/$defs/EmaOperand"
+            },
+            {
+              "$ref": "#/$defs/RsiOperand"
+            },
+            {
+              "$ref": "#/$defs/MacdOperand"
+            },
+            {
+              "$ref": "#/$defs/BollingerOperand"
+            },
+            {
+              "$ref": "#/$defs/ConstantOperand"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "operator",
+        "left",
+        "right"
+      ],
+      "title": "Comparison",
+      "type": "object"
+    },
+    "ConstantOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "constant",
+          "default": "constant",
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "ConstantOperand",
+      "type": "object"
+    },
+    "EmaOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "ema",
+          "default": "ema",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "EmaOperand",
+      "type": "object"
+    },
+    "EntryRule": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "default": "long",
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "condition": {
+          "discriminator": {
+            "mapping": {
+              "and": "#/$defs/AllOf",
+              "compare": "#/$defs/Comparison",
+              "not": "#/$defs/Negation",
+              "or": "#/$defs/AnyOf"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Comparison"
+            },
+            {
+              "$ref": "#/$defs/AllOf"
+            },
+            {
+              "$ref": "#/$defs/AnyOf"
+            },
+            {
+              "$ref": "#/$defs/Negation"
+            }
+          ]
+        }
+      },
+      "required": [
+        "direction",
+        "condition"
+      ],
+      "title": "EntryRule",
+      "type": "object"
+    },
+    "ExecutionModel": {
+      "additionalProperties": false,
+      "properties": {
+        "commission_pct": {
+          "default": 0.1,
+          "maximum": 5,
+          "minimum": 0,
+          "type": "number"
+        },
+        "slippage_bps": {
+          "default": 5,
+          "maximum": 500,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "commission_pct",
+        "slippage_bps"
+      ],
+      "title": "ExecutionModel",
+      "type": "object"
+    },
+    "ExecutionPreset": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionModel"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "execution"
+      ],
+      "title": "ExecutionPreset",
+      "type": "object"
+    },
+    "Exit": {
+      "additionalProperties": false,
+      "properties": {
+        "rule": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/AllOf",
+                  "compare": "#/$defs/Comparison",
+                  "not": "#/$defs/Negation",
+                  "or": "#/$defs/AnyOf"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Comparison"
+                },
+                {
+                  "$ref": "#/$defs/AllOf"
+                },
+                {
+                  "$ref": "#/$defs/AnyOf"
+                },
+                {
+                  "$ref": "#/$defs/Negation"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "stop_loss_pct": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 100,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "take_profit_pct": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "rule",
+        "stop_loss_pct",
+        "take_profit_pct"
+      ],
+      "title": "Exit",
+      "type": "object"
+    },
+    "InstrumentInfo": {
+      "properties": {
+        "symbol": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "symbol",
+        "label"
+      ],
+      "title": "InstrumentInfo",
+      "type": "object"
+    },
+    "InstrumentsResponse": {
+      "properties": {
+        "instruments": {
+          "items": {
+            "$ref": "#/$defs/InstrumentInfo"
+          },
+          "type": "array"
+        },
+        "timeframes": {
+          "items": {
+            "enum": [
+              "1d",
+              "4h",
+              "1h"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "instruments",
+        "timeframes"
+      ],
+      "title": "InstrumentsResponse",
+      "type": "object"
+    },
+    "MacdOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "macd",
+          "default": "macd",
+          "type": "string"
+        },
+        "fast": {
+          "default": 12,
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "slow": {
+          "default": 26,
+          "maximum": 1000,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "signal": {
+          "default": 9,
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "line": {
+          "default": "macd",
+          "enum": [
+            "macd",
+            "signal",
+            "histogram"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "fast",
+        "slow",
+        "signal",
+        "line"
+      ],
+      "title": "MacdOperand",
+      "type": "object"
+    },
+    "Metrics": {
+      "properties": {
+        "total_return_pct": {
+          "type": "number"
+        },
+        "buy_and_hold_return_pct": {
+          "type": "number"
+        },
+        "max_drawdown_pct": {
+          "type": "number"
+        },
+        "sharpe_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "win_rate_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trade_count": {
+          "type": "integer"
+        },
+        "exposure_time_pct": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "total_return_pct",
+        "buy_and_hold_return_pct",
+        "max_drawdown_pct",
+        "sharpe_ratio",
+        "win_rate_pct",
+        "trade_count",
+        "exposure_time_pct"
+      ],
+      "title": "Metrics",
+      "type": "object"
+    },
+    "MissingResponse": {
+      "properties": {
+        "status": {
+          "const": "missing",
+          "default": "missing",
+          "type": "string"
+        },
+        "missing": {
+          "items": {
+            "enum": [
+              "instrument",
+              "timeframe",
+              "entry",
+              "exit"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "missing"
+      ],
+      "title": "MissingResponse",
+      "type": "object"
+    },
+    "Negation": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "not",
+          "default": "not",
+          "type": "string"
+        },
+        "condition": {
+          "discriminator": {
+            "mapping": {
+              "and": "#/$defs/AllOf",
+              "compare": "#/$defs/Comparison",
+              "not": "#/$defs/Negation",
+              "or": "#/$defs/AnyOf"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Comparison"
+            },
+            {
+              "$ref": "#/$defs/AllOf"
+            },
+            {
+              "$ref": "#/$defs/AnyOf"
+            },
+            {
+              "$ref": "#/$defs/Negation"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "condition"
+      ],
+      "title": "Negation",
+      "type": "object"
+    },
+    "PriceOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "price",
+          "default": "price",
+          "type": "string"
+        },
+        "field": {
+          "default": "close",
+          "enum": [
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "field"
+      ],
+      "title": "PriceOperand",
+      "type": "object"
+    },
+    "ResultResponse": {
+      "properties": {
+        "status": {
+          "const": "ok",
+          "default": "ok",
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/$defs/BacktestResult"
+        }
+      },
+      "required": [
+        "status",
+        "result"
+      ],
+      "title": "ResultResponse",
+      "type": "object"
+    },
+    "RsiOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "rsi",
+          "default": "rsi",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "RsiOperand",
+      "type": "object"
+    },
+    "SmaOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "sma",
+          "default": "sma",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "SmaOperand",
+      "type": "object"
+    },
+    "Strategy": {
+      "additionalProperties": false,
+      "description": "A complete strategy, ready to backtest.",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "instrument": {
+          "type": "string"
+        },
+        "timeframe": {
+          "enum": [
+            "1d",
+            "4h",
+            "1h"
+          ],
+          "type": "string"
+        },
+        "entry": {
+          "$ref": "#/$defs/EntryRule"
+        },
+        "exit": {
+          "$ref": "#/$defs/Exit"
+        },
+        "position_size_pct": {
+          "default": 100,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "type": "number"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionModel",
+          "default": {
+            "commission_pct": 0.1,
+            "slippage_bps": 5.0
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "instrument",
+        "timeframe",
+        "entry",
+        "exit",
+        "position_size_pct",
+        "execution"
+      ],
+      "title": "Strategy",
+      "type": "object"
+    },
+    "StrategyDraft": {
+      "additionalProperties": false,
+      "description": "A strategy as the editor sends it: the four required parts may still be missing.",
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "type": "integer"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "timeframe": {
+          "anyOf": [
+            {
+              "enum": [
+                "1d",
+                "4h",
+                "1h"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "entry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntryRule"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Exit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "position_size_pct": {
+          "default": 100,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "type": "number"
+        },
+        "execution": {
+          "$ref": "#/$defs/ExecutionModel",
+          "default": {
+            "commission_pct": 0.1,
+            "slippage_bps": 5.0
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "instrument",
+        "timeframe",
+        "entry",
+        "exit",
+        "position_size_pct",
+        "execution"
+      ],
+      "title": "StrategyDraft",
+      "type": "object"
+    },
+    "TimePoint": {
+      "properties": {
+        "time": {
+          "description": "Bar open time, UNIX seconds",
+          "type": "integer"
+        },
+        "value": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "time",
+        "value"
+      ],
+      "title": "TimePoint",
+      "type": "object"
+    },
+    "Trade": {
+      "properties": {
+        "direction": {
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "entry_time": {
+          "type": "integer"
+        },
+        "entry_price": {
+          "type": "number"
+        },
+        "exit_time": {
+          "type": "integer"
+        },
+        "exit_price": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        },
+        "return_pct": {
+          "type": "number"
+        },
+        "profit": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "direction",
+        "entry_time",
+        "entry_price",
+        "exit_time",
+        "exit_price",
+        "size",
+        "return_pct",
+        "profit"
+      ],
+      "title": "Trade",
+      "type": "object"
+    }
+  },
+  "description": "Not an API payload: a single root that references every type the frontend needs.",
+  "properties": {
+    "strategy": {
+      "$ref": "#/$defs/Strategy"
+    },
+    "strategy_draft": {
+      "$ref": "#/$defs/StrategyDraft"
+    },
+    "backtest_request": {
+      "$ref": "#/$defs/BacktestRequest"
+    },
+    "backtest_response": {
+      "discriminator": {
+        "mapping": {
+          "missing": "#/$defs/MissingResponse",
+          "ok": "#/$defs/ResultResponse"
+        },
+        "propertyName": "status"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/MissingResponse"
+        },
+        {
+          "$ref": "#/$defs/ResultResponse"
+        }
+      ]
+    },
+    "instruments_response": {
+      "$ref": "#/$defs/InstrumentsResponse"
+    },
+    "execution_preset": {
+      "$ref": "#/$defs/ExecutionPreset"
+    },
+    "ai_build_request": {
+      "$ref": "#/$defs/AiBuildRequest"
+    },
+    "ai_build_response": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AiBuildOk"
+        },
+        {
+          "$ref": "#/$defs/AiBuildFailed"
+        }
+      ]
+    }
+  },
+  "required": [
+    "strategy",
+    "strategy_draft",
+    "backtest_request",
+    "backtest_response",
+    "instruments_response",
+    "execution_preset",
+    "ai_build_request",
+    "ai_build_response"
+  ],
+  "title": "ApiTypes",
+  "type": "object"
+}
