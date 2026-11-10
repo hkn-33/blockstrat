@@ -17,7 +17,7 @@ export function parseStrategy(text: string): StrategyDraft {
     throw new InvalidStrategyError('The file is not valid JSON.')
   }
   if (!isStrategyShape(value)) {
-    throw new InvalidStrategyError('The file is not a Strategy Lab strategy (or comes from an unsupported version).')
+    throw new InvalidStrategyError('The file is not a BlockStrat strategy (or comes from an unsupported version).')
   }
   try {
     // The blocks are the source of truth: a strategy that does not survive the trip into blocks
@@ -74,8 +74,8 @@ export function strategyFromHash(hash: string): StrategyDraft | null {
 
 // ---------- Browser storage ----------
 
-const CURRENT_KEY = 'strategy-lab:current'
-const LIBRARY_KEY = 'strategy-lab:library'
+const CURRENT_KEY = 'blockstrat:current'
+const LIBRARY_KEY = 'blockstrat:library'
 
 export type StrategyLibrary = Record<string, StrategyDraft>
 

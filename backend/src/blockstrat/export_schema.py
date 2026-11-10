@@ -1,6 +1,6 @@
 """Writes the JSON Schema of the API types; the frontend generates its TypeScript types from it.
 
-Usage: uv run python -m strategy_lab.export_schema <output path>
+Usage: uv run python -m blockstrat.export_schema <output path>
 """
 
 import json
@@ -9,9 +9,9 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from strategy_lab.ai import AiBuildRequest, AiBuildResponse
-from strategy_lab.api import ExecutionPreset, InstrumentsResponse
-from strategy_lab.schema import BacktestRequest, BacktestResponse, Strategy, StrategyDraft
+from blockstrat.ai import AiBuildRequest, AiBuildResponse
+from blockstrat.api import ExecutionPreset, InstrumentsResponse
+from blockstrat.schema import BacktestRequest, BacktestResponse, Strategy, StrategyDraft
 
 
 class ApiTypes(BaseModel):

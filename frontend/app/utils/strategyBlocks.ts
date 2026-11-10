@@ -227,7 +227,7 @@ export function emptyWorkspace(): WorkspaceState {
 }
 
 function rootBlock(inputs: Record<string, { block?: BlockState }>): BlockState {
-  return { type: BlockType.root, x: 40, y: 40, deletable: false, inputs }
+  return { type: BlockType.root, x: 16, y: 16, deletable: false, inputs }
 }
 
 function linked(blocks: BlockState[]): BlockState {

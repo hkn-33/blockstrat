@@ -4,8 +4,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from conftest import FIXTURE_SYMBOL, FakeMarketData, make_bars, strategy
-from strategy_lab.ai import AiMessage, RateLimiter
-from strategy_lab.api import create_app
+from blockstrat.ai import AiMessage, RateLimiter
+from blockstrat.api import create_app
 
 
 class FakeBuilder:

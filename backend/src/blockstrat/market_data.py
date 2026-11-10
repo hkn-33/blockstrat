@@ -9,7 +9,7 @@ from typing import Protocol
 import httpx
 import pandas as pd
 
-from strategy_lab.schema import Timeframe
+from blockstrat.schema import Timeframe
 
 BINANCE_KLINES_URL = "https://data-api.binance.vision/api/v3/klines"
 BINANCE_PAGE_LIMIT = 1000

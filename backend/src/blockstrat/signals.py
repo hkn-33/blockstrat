@@ -5,7 +5,7 @@ from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator, SMAIndicator
 from ta.volatility import BollingerBands
 
-from strategy_lab.schema import (
+from blockstrat.schema import (
     AllOf,
     AnyOf,
     BollingerOperand,

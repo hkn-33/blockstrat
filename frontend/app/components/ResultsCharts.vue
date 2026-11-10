@@ -56,22 +56,60 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelAnimationFrame(drawFrame)
   priceChart?.remove()
   equityChart?.remove()
 })
 
 watch(() => props.result, render)
 
+const DRAW_MS = 900
+let drawFrame = 0
+
+/**
+ * Draws the result from left to right. The time axis and price ranges are fixed to the whole result
+ * up front (future bars are blank placeholders), so only the lines grow and the axes stay still.
+ */
 function render(result: BacktestResult): void {
-  candles.setData(result.bars.map(bar => ({ ...bar, time: bar.time as UTCTimestamp })))
-  equityLine.setData(result.equity.map(point => ({ time: point.time as UTCTimestamp, value: point.value })))
-  buyAndHoldLine.setData(result.buy_and_hold.map(point => ({ time: point.time as UTCTimestamp, value: point.value })))
-  markers.setMarkers(tradeMarkers(result))
-  // autoSize measures the container on the next frame; fitting earlier would fit a zero-width chart.
-  requestAnimationFrame(() => {
-    priceChart.timeScale().fitContent()
-    equityChart.timeScale().fitContent()
-  })
+  cancelAnimationFrame(drawFrame)
+  const candleData = result.bars.map(bar => ({ ...bar, time: bar.time as UTCTimestamp }))
+  const equityData = result.equity.map(point => ({ time: point.time as UTCTimestamp, value: point.value }))
+  const holdData = result.buy_and_hold.map(point => ({ time: point.time as UTCTimestamp, value: point.value }))
+  const blanks = candleData.map(bar => ({ time: bar.time }))
+  const allMarkers = tradeMarkers(result)
+
+  const priceRange = { minValue: Math.min(...result.bars.map(bar => bar.low)), maxValue: Math.max(...result.bars.map(bar => bar.high)) }
+  const curveValues = [...equityData, ...holdData].map(point => point.value)
+  const curveRange = { minValue: Math.min(...curveValues), maxValue: Math.max(...curveValues) }
+  candles.applyOptions({ autoscaleInfoProvider: () => ({ priceRange }) })
+  equityLine.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: curveRange }) })
+  buyAndHoldLine.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: curveRange }) })
+
+  const showFirst = (count: number) => {
+    const rest = blanks.slice(count)
+    candles.setData([...candleData.slice(0, count), ...rest])
+    equityLine.setData([...equityData.slice(0, count), ...rest])
+    buyAndHoldLine.setData([...holdData.slice(0, count), ...rest])
+    const lastTime = candleData[count - 1]?.time ?? 0
+    markers.setMarkers(allMarkers.filter(marker => (marker.time as number) <= lastTime))
+    // Replacing data makes the chart scroll to the newest bar; keep the whole period in view instead.
+    priceChart.timeScale().setVisibleLogicalRange({ from: 0, to: candleData.length - 1 })
+  }
+
+  showFirst(1)
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduceMotion) {
+    showFirst(candleData.length)
+    return
+  }
+  const startedAt = performance.now()
+  const step = (now: number) => {
+    const progress = Math.min(1, (now - startedAt) / DRAW_MS)
+    showFirst(Math.max(1, Math.round(candleData.length * progress)))
+    if (progress < 1) drawFrame = requestAnimationFrame(step)
+  }
+  drawFrame = requestAnimationFrame(step)
 }
 
 let isSyncing = false

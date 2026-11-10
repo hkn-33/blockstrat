@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, ValidationError
 
-from strategy_lab.ai import (
+from blockstrat.ai import (
     RESTING_MESSAGE,
     AiBuildFailed,
     AiBuildRequest,
@@ -19,9 +19,9 @@ from strategy_lab.ai import (
     StrategyBuilder,
     build_strategy,
 )
-from strategy_lab.backtest import NotEnoughDataError, run_backtest
-from strategy_lab.market_data import BinanceMarketData, MarketData, UnknownInstrumentError
-from strategy_lab.schema import (
+from blockstrat.backtest import NotEnoughDataError, run_backtest
+from blockstrat.market_data import BinanceMarketData, MarketData, UnknownInstrumentError
+from blockstrat.schema import (
     TIMEFRAMES,
     BacktestRequest,
     BacktestResponse,
@@ -74,7 +74,7 @@ def create_app(
     rate_limiter: RateLimiter | None = None,
 ) -> FastAPI:
     ai_rate_limiter = rate_limiter or RateLimiter(per_ip_per_hour=10, global_per_day=200)
-    app = FastAPI(title="Strategy Lab")
+    app = FastAPI(title="BlockStrat")
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware,

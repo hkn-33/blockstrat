@@ -23,9 +23,9 @@ function update(field: keyof ExecutionModel, raw: string): void {
 </script>
 
 <template>
-  <fieldset class="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
-    <legend class="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-      Execution model
+  <fieldset class="flex flex-wrap items-end gap-3">
+    <legend class="sr-only">
+      Trading costs
     </legend>
     <label class="flex flex-col text-xs text-slate-600">
       Preset

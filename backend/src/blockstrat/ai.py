@@ -8,8 +8,8 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from strategy_lab.market_data import Instrument
-from strategy_lab.schema import TIMEFRAMES, StrategyDraft
+from blockstrat.market_data import Instrument
+from blockstrat.schema import TIMEFRAMES, StrategyDraft
 
 
 class AiMessage(BaseModel):
@@ -141,7 +141,7 @@ def build_strategy(
 
 def _system_prompt(instruments: tuple[Instrument, ...]) -> str:
     symbols = ", ".join(f"{instrument.symbol} ({instrument.label})" for instrument in instruments)
-    return f"""You help users of Strategy Lab build a trading strategy from blocks for backtesting on historical data.
+    return f"""You help users of BlockStrat build a trading strategy from blocks for backtesting on historical data.
 Return the complete strategy as JSON that matches the response schema exactly; never return code.
 
 Rules:
