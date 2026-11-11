@@ -22,8 +22,12 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_PATH = BACKEND_DIR.parent / "frontend" / "app" / "data" / "landing-demo.json"
 
 MARKETS = ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+# The "same rules, different coins" section shows Solana beside these two, at the 5% stop only. They were
+# picked from a survey of all ten pairs because the real results there run from clear wins to clear losses.
+COMPARISON_MARKETS = ("LINKUSDT", "ADAUSDT")
 STRATEGIES = ("dip", "trend", "combo")
 STOP_LOSS_LEVELS = (5, 10)
+COMPARISON_STOP_LOSS = 5
 TIMEFRAME = "4h"
 TAKE_PROFIT_PCT = 15
 
@@ -117,9 +121,10 @@ def main() -> None:
     market_data = BinanceMarketData(BACKEND_DIR / "data")
     runs: dict[str, object] = {}
     markets: dict[str, object] = {}
-    for market in MARKETS:
+    for market in (*MARKETS, *COMPARISON_MARKETS):
         bars = market_data.bars(market, TIMEFRAME)
-        for name, stop_loss in product(STRATEGIES, STOP_LOSS_LEVELS):
+        stop_losses = STOP_LOSS_LEVELS if market in MARKETS else (COMPARISON_STOP_LOSS,)
+        for name, stop_loss in product(STRATEGIES, stop_losses):
             strategy = demo_strategy(name, market, stop_loss)
             result = run_backtest(strategy, bars, "preview")
             runs[f"{name}:{market}:{stop_loss}"] = summarize(strategy, result)

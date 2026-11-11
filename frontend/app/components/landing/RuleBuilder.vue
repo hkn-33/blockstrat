@@ -11,14 +11,17 @@ const props = withDefaults(defineProps<{
   exit: RuleGroup
   theme?: 'light' | 'dark' | 'auto'
   entrance?: boolean
-  // Show an empty slot under the exit conditions, as the builder does while you drag.
-  dropSlot?: boolean
+  // Show only the first conditions, in order across both groups, with an empty slot where the next one
+  // will land, as the builder does while you drag. The rest keep their place, so nothing below moves.
+  // Leave it out to show every condition.
+  visibleCount?: number
   // Drawn straight onto its container, for when the container is already the frame.
   flush?: boolean
-}>(), { theme: 'light', entrance: false, dropSlot: false, flush: false })
+}>(), { theme: 'light', entrance: false, visibleCount: undefined, flush: false })
 
 const coin = computed(() => demoMarket(props.market))
-const resolvedTheme = useResolvedChartTheme(() => props.theme)
+// 'auto' is decided by CSS from the page's dark class, so the prerendered markup is right in both themes.
+const themeClass = computed(() => `rules--${props.theme}`)
 
 const sections = computed(() => [
   {
@@ -43,10 +46,17 @@ const sections = computed(() => [
 function stepOf(sectionIndex: number, conditionIndex: number): number {
   return sectionIndex === 0 ? conditionIndex : props.entry.conditions.length + conditionIndex
 }
+
+function rowState(sectionIndex: number, conditionIndex: number): 'shown' | 'next' | 'pending' {
+  if (props.visibleCount === undefined) return 'shown'
+  const step = stepOf(sectionIndex, conditionIndex)
+  if (step < props.visibleCount) return 'shown'
+  return step === props.visibleCount ? 'next' : 'pending'
+}
 </script>
 
 <template>
-  <div class="rules" :class="[`rules--${resolvedTheme}`, { 'has-entrance': entrance, 'rules--flush': flush }]">
+  <div class="rules" :class="[themeClass, { 'has-entrance': entrance, 'rules--flush': flush }]">
     <div class="rules-head">
       <img :src="`/brand-icons/${coin.icon}.svg`" alt="" class="coin">
       <span class="font-bold">{{ coin.label }}</span>
@@ -61,22 +71,21 @@ function stepOf(sectionIndex: number, conditionIndex: number): number {
         <span class="muted">{{ section.tail }}</span>
       </p>
       <ol class="conditions">
-        <li
-          v-for="(condition, conditionIndex) in section.group.conditions"
-          :key="`${condition.subject}-${conditionIndex}`"
-          class="condition-row"
-          :style="{ '--step': stepOf(sectionIndex, conditionIndex) }"
-        >
-          <span v-if="conditionIndex > 0" class="joiner">{{ section.joiner }}</span>
-          <span class="condition" :class="`condition--${condition.kind ?? 'indicator'}`">
-            <span class="segment segment--subject"><span class="dot" />{{ condition.subject }}</span>
-            <span class="segment segment--operator">{{ condition.operator }}</span>
-            <span class="segment segment--value">{{ condition.value }}</span>
-          </span>
-        </li>
-        <li v-if="dropSlot && section.key === 'exit'" class="condition-row">
-          <span class="slot">Drop a condition here</span>
-        </li>
+        <template v-for="(condition, conditionIndex) in section.group.conditions" :key="`${condition.subject}-${conditionIndex}`">
+          <li
+            class="condition-row"
+            :class="`is-${rowState(sectionIndex, conditionIndex)}`"
+            :style="{ '--step': visibleCount === undefined ? stepOf(sectionIndex, conditionIndex) : 0 }"
+          >
+            <span v-if="conditionIndex > 0" class="joiner">{{ section.joiner }}</span>
+            <span class="condition" :class="`condition--${condition.kind ?? 'indicator'}`">
+              <span class="segment segment--subject"><span class="dot" />{{ condition.subject }}</span>
+              <span class="segment segment--operator">{{ condition.operator }}</span>
+              <span class="segment segment--value">{{ condition.value }}</span>
+            </span>
+            <span v-if="rowState(sectionIndex, conditionIndex) === 'next'" class="slot">Drop a condition here</span>
+          </li>
+        </template>
       </ol>
     </section>
   </div>
@@ -100,7 +109,8 @@ function stepOf(sectionIndex: number, conditionIndex: number): number {
   box-shadow: inset 0 0 0 1px var(--hair), 0 24px 48px -32px rgb(13 27 36 / 0.45);
 }
 
-.rules--dark {
+.rules--dark,
+:global(.dark .rules--auto) {
   --card: #0f2a30;
   --text: #ffffff;
   --soft: rgb(255 255 255 / 0.7);
@@ -241,11 +251,26 @@ function stepOf(sectionIndex: number, conditionIndex: number): number {
   background: var(--color-loss);
 }
 
+/* A condition that has not landed yet keeps its room; the next one shows as a dashed slot over it. */
+.condition-row.is-pending,
+.condition-row.is-next {
+  position: relative;
+}
+
+.condition-row.is-pending > *,
+.condition-row.is-next > :not(.slot) {
+  visibility: hidden;
+}
+
 .slot {
+  position: absolute;
+  bottom: 0;
+  left: 0.85em;
   border: 1.5px dashed var(--chip-line);
   border-radius: 10px;
-  padding: 0.45em 0.8em;
+  padding: calc(0.45em - 1.5px) 0.8em;
   color: var(--soft);
+  white-space: nowrap;
 }
 
 @media (max-width: 480px) {
@@ -255,9 +280,9 @@ function stepOf(sectionIndex: number, conditionIndex: number): number {
 }
 
 /* Entrance: each condition slides into its group in turn. */
-.has-entrance .condition-row {
+.has-entrance .condition-row.is-shown {
   animation: snap-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(250ms + var(--step) * 70ms);
+  animation-delay: calc(120ms + var(--step) * 70ms);
 }
 
 @keyframes snap-in {
@@ -268,7 +293,7 @@ function stepOf(sectionIndex: number, conditionIndex: number): number {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .has-entrance .condition-row {
+  .has-entrance .condition-row.is-shown {
     animation: none;
   }
 }

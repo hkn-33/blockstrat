@@ -2,66 +2,69 @@
 import type { DemoMarket, DemoRun } from '~/composables/useLandingDemo'
 
 // The numbers under the chart, laid out like a strategy tester's overview. The gap to holding leads,
-// because it says whether the rules were worth following at all.
-const props = defineProps<{ market: DemoMarket, run: DemoRun }>()
+// because it says whether the rules were worth following at all. `progress` shows the numbers as they
+// stood part of the way through the period, for a chart that draws with the scroll.
+const props = withDefaults(defineProps<{ market: DemoMarket, run: DemoRun, progress?: number }>(), { progress: 1 })
 
-const metrics = computed(() => props.run.metrics)
-const coinName = computed(() => demoMarket(props.market).label.split('/')[0])
-const netProfit = computed(() => (DEMO_STARTING_CASH * metrics.value.total_return_pct) / 100)
-const beatHolding = computed(() => metrics.value.total_return_pct > metrics.value.buy_and_hold_return_pct)
-const edge = computed(() => metrics.value.total_return_pct - metrics.value.buy_and_hold_return_pct)
-const tradeReturns = computed(() => props.run.trades.map(trade => trade.return_pct))
+const snapshot = computed(() => runSnapshot(props.market, props.run, props.progress))
+const coinName = computed(() => demoMarket(props.market).label.split('/')[0]!)
+const netProfit = computed(() => (DEMO_STARTING_CASH * snapshot.value.total_return_pct) / 100)
+const gap = computed(() => holdingGap(snapshot.value, coinName.value))
 
 function plainPercent(value: number): string {
   return `${Math.abs(Math.round(value))}%`
+}
+
+function tradePercent(value: number | null): string {
+  return value === null ? 'None yet' : formatSignedPercent(value)
 }
 </script>
 
 <template>
   <div class="tester">
     <div class="headline">
-      <p class="edge" :class="beatHolding ? 'is-ahead' : 'down'">
-        {{ edge >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(edge)) }} pts <span>vs holding {{ coinName }}</span>
+      <p class="edge" :class="gap.isAhead ? 'is-ahead' : 'down'">
+        {{ gap.dollars }} <span>{{ gap.words }}</span>
       </p>
       <p class="summary">
-        Holding {{ coinName }} {{ metrics.buy_and_hold_return_pct >= 0 ? 'made' : 'lost' }} {{ plainPercent(metrics.buy_and_hold_return_pct) }}.
-        These rules {{ metrics.total_return_pct >= 0 ? 'made' : 'lost' }} {{ plainPercent(metrics.total_return_pct) }}.
+        Holding {{ coinName }} {{ snapshot.buy_and_hold_return_pct >= 0 ? 'made' : 'lost' }} {{ plainPercent(snapshot.buy_and_hold_return_pct) }}.
+        These rules {{ snapshot.total_return_pct >= 0 ? 'made' : 'lost' }} {{ plainPercent(snapshot.total_return_pct) }}.
       </p>
     </div>
     <dl class="overview">
       <div>
         <dt>Net profit</dt>
         <dd :class="netProfit >= 0 ? 'up' : 'down'">
-          {{ formatDollars(netProfit) }} <small>{{ formatSignedPercent(metrics.total_return_pct) }}</small>
+          {{ formatDollars(netProfit) }} <small>{{ formatSignedPercent(snapshot.total_return_pct) }}</small>
         </dd>
       </div>
       <div>
         <dt>Holding {{ coinName }}</dt>
-        <dd>{{ formatSignedPercent(metrics.buy_and_hold_return_pct) }}</dd>
+        <dd>{{ formatSignedPercent(snapshot.buy_and_hold_return_pct) }}</dd>
       </div>
       <div>
         <dt>Closed trades</dt>
-        <dd>{{ metrics.trade_count }}</dd>
+        <dd>{{ snapshot.trade_count }}</dd>
       </div>
       <div>
         <dt>Profitable</dt>
-        <dd>{{ Math.round(metrics.win_rate_pct ?? 0) }}%</dd>
+        <dd>{{ Math.round(snapshot.win_rate_pct) }}%</dd>
       </div>
       <div>
         <dt>Best trade</dt>
-        <dd>{{ formatSignedPercent(Math.max(...tradeReturns)) }}</dd>
+        <dd>{{ tradePercent(snapshot.best_trade_pct) }}</dd>
       </div>
       <div>
         <dt>Worst trade</dt>
-        <dd>{{ formatSignedPercent(Math.min(...tradeReturns)) }}</dd>
+        <dd>{{ tradePercent(snapshot.worst_trade_pct) }}</dd>
       </div>
       <div>
         <dt>Max drawdown</dt>
-        <dd>{{ formatSignedPercent(-Math.abs(metrics.max_drawdown_pct)) }}</dd>
+        <dd>{{ formatSignedPercent(snapshot.max_drawdown_pct) }}</dd>
       </div>
       <div>
         <dt>Fees paid</dt>
-        <dd>{{ formatDollars(run.fees_paid) }}</dd>
+        <dd>{{ formatDollars(snapshot.fees_paid) }}</dd>
       </div>
     </dl>
   </div>
@@ -73,7 +76,7 @@ function plainPercent(value: number): string {
   gap: 1rem;
   padding: 1rem 1rem 1.25rem;
   font-size: 13px;
-  color: rgb(214 226 230 / 0.8);
+  color: var(--panel-soft);
   font-variant-numeric: tabular-nums;
 }
 
@@ -91,14 +94,14 @@ function plainPercent(value: number): string {
 }
 
 .edge.is-ahead {
-  color: var(--color-lime);
+  color: var(--accent-ink);
 }
 
 .edge span {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
-  color: rgb(214 226 230 / 0.75);
+  color: var(--panel-soft);
 }
 
 .summary {
@@ -118,19 +121,15 @@ function plainPercent(value: number): string {
 }
 
 .overview div {
-  border-top: 1px solid rgb(255 255 255 / 0.07);
+  border-top: 1px solid var(--panel-line);
   padding-top: 0.6rem;
-}
-
-.overview dt {
-  color: rgb(214 226 230 / 0.7);
 }
 
 .overview dd {
   margin-top: 0.15rem;
   font-size: 17px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--panel-ink);
 }
 
 .overview dd small {
@@ -140,11 +139,11 @@ function plainPercent(value: number): string {
 
 .up,
 .overview dd.up {
-  color: var(--color-gain-bright);
+  color: var(--gain-ink);
 }
 
 .down,
 .overview dd.down {
-  color: var(--color-loss-bright);
+  color: var(--loss-ink);
 }
 </style>

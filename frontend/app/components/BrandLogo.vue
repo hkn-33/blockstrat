@@ -46,8 +46,13 @@ withDefaults(defineProps<{ inverted?: boolean }>(), { inverted: false })
   opacity: 0.65;
 }
 
+/* The tallest block is the brand's accent: lime on dark grounds, the gain green on light ones. */
 .block--top {
-  fill: var(--logo-accent, #2f6bff);
+  fill: var(--logo-accent, var(--color-gain));
+}
+
+.is-inverted .block--top {
+  fill: var(--logo-accent, var(--color-lime));
 }
 
 .brand-logo__word {

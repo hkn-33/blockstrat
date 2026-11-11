@@ -1,3 +1,5 @@
+import { ColorType, type ChartOptions, type DeepPartial } from 'lightweight-charts'
+
 // One look for every chart on the landing page, in a light and a dark version (TradingView's own split).
 export type ChartTheme = 'light' | 'dark'
 
@@ -50,4 +52,22 @@ export function useResolvedChartTheme(theme: () => ChartTheme | 'auto'): Compute
     if (wanted !== 'auto') return wanted
     return colorMode.value === 'light' ? 'light' : 'dark'
   })
+}
+
+/** The options every landing chart shares: the page's font, no frame, English dates, no pan or zoom. */
+export function baseChartOptions(): DeepPartial<ChartOptions> {
+  return {
+    autoSize: true,
+    layout: {
+      background: { type: ColorType.Solid, color: 'transparent' },
+      fontFamily: 'Satoshi, ui-sans-serif, system-ui, sans-serif',
+      fontSize: 11,
+      attributionLogo: false,
+    },
+    rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false },
+    localization: { locale: 'en-US' },
+    handleScroll: false,
+    handleScale: false,
+  }
 }

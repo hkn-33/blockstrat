@@ -14,25 +14,99 @@ const featuredRun = demoRun('combo', 'SOLUSDT', 5)
 const featuredReturn = Math.round(featuredRun.metrics.total_return_pct)
 const featuredHolding = Math.round(featuredRun.metrics.buy_and_hold_return_pct)
 const featuredDrawdown = Math.round(Math.abs(featuredRun.metrics.max_drawdown_pct))
+const featuredGap = holdingGap(featuredRun.metrics, 'SOL')
+
+const PAIRS = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'LTC']
+
+const ASSISTANT_FACTS = [
+  { icon: 'file-json', title: 'Blocks, never code', text: 'It answers with the same blocks you would snap together, so you can check every rule it set.' },
+  { icon: 'shield-check', title: 'Says what it cannot build', text: 'Ask for something the engine does not do, like short selling, and it tells you instead of guessing.' },
+  { icon: 'refresh-cw', title: 'Yours to change', text: 'Every block stays editable, and each change replays the backtest in well under a second.' },
+]
 
 const COINS = ['bitcoin', 'ethereum', 'solana']
 
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value !== 'light')
 
+// Picking the theme the browser already asks for hands control back to the browser, so one stray click
+// is undone by the next and the page follows the system again.
 function toggleTheme(): void {
-  colorMode.preference = isDark.value ? 'light' : 'dark'
+  const wanted = isDark.value ? 'light' : 'dark'
+  const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  colorMode.preference = wanted === (systemIsDark ? 'dark' : 'light') ? 'system' : wanted
+}
+
+const HEADLINE_WORDS = 'Test it before you trade it'.split(' ')
+
+// The hero's ground is the taste kit's grain-gradient shader (public/fx), served as plain files so Vite
+// leaves it alone. It falls back to a still CSS gradient without WebGL and holds one frame under reduced motion.
+interface FxController {
+  destroy: () => void
+}
+interface FxModule {
+  mount: (element: HTMLElement, effect: unknown, options: { palette: Record<string, string>, params: Record<string, number>, seed: number }) => Promise<FxController>
+}
+
+const ground = ref<HTMLDivElement | null>(null)
+let groundEffect: FxController | undefined
+
+// The shader only mixes accents near the ground's hue, so the light is the gain green, not the lime.
+const GROUND_PALETTES = {
+  dark: { bg: '#082a30', surface: '#0e3f47', ink: '#ffffff', accent: '#2fc59f' },
+  light: { bg: '#e9f2f3', surface: '#ffffff', ink: '#0d1b24', accent: '#0e9963' },
+}
+
+async function mountGround(): Promise<void> {
+  const base = '/fx/'
+  const [fx, effect] = await Promise.all([
+    import(/* @vite-ignore */ `${base}fx.js`) as Promise<FxModule>,
+    import(/* @vite-ignore */ `${base}grain-gradient/effect.js`) as Promise<{ default: unknown }>,
+  ])
+  if (!ground.value) return
+  groundEffect?.destroy()
+  groundEffect = await fx.mount(ground.value, effect.default, {
+    palette: GROUND_PALETTES[isDark.value ? 'dark' : 'light'],
+    params: { speed: 0.35, tint: 0.95, contrast: 0.85, calm: 0.5, calmX: 0.2, calmY: 0.25 },
+    seed: 17,
+  })
+}
+
+watch(isDark, () => {
+  mountGround().catch(error => console.warn('Hero ground fell back to a flat colour', error))
+})
+
+// The nav stays on screen: full width over the hero, then a smaller floating bar once the page moves.
+const isNavCompact = ref(false)
+
+function onScroll(): void {
+  isNavCompact.value = window.scrollY > 40
 }
 
 // Smooth, eased scrolling on the landing page only; the builder keeps native scrolling for its editor.
 let lenis: Lenis | undefined
 
 onMounted(() => {
+  mountGround().catch(error => console.warn('Hero ground fell back to a flat colour', error))
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   lenis = new Lenis({ autoRaf: true, anchors: true })
 })
 
-onBeforeUnmount(() => lenis?.destroy())
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll)
+  lenis?.destroy()
+  groundEffect?.destroy()
+})
+
+// Placeholder proof: invented for the preview, replace with real testers before launch. The numbers in
+// them match real demo backtests (buying the dip on ETH, the trend rules on Chainlink).
+const QUOTES = [
+  { text: 'I copied an RSI dip strategy from a video and was about to put $2,000 on it. On Ethereum the test said minus 47%. I kept my money.', name: 'Marta K.', detail: 'Tested 14 strategies', result: 'Kept $2,000' },
+  { text: 'I typed one sentence and got blocks I could actually read. The same trend rules made 39% on Chainlink and lost on Bitcoin.', name: 'Tomasz W.', detail: 'First strategy in 4 minutes', result: 'Found what works where' },
+  { text: 'Fees were eating more than half my profit and I had no idea. Seeing them per trade changed how often I trade.', name: 'Ola P.', detail: 'Trades on weekends', result: '$780 in fees spotted' },
+]
 
 const FAQ = [
   { question: 'Do I need to know how to code?', answer: 'No. Describe the idea in a sentence or snap the blocks together. You never see code.' },
@@ -46,17 +120,15 @@ const FAQ = [
 
 <template>
   <div class="lp">
-    <section class="hero">
-      <div class="glow" aria-hidden="true" />
-      <div class="grain" aria-hidden="true" />
-
-      <header class="wrap relative z-10 flex items-center justify-between gap-6 py-5">
-        <NuxtLink to="/" class="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4">
-          <BrandLogo inverted />
+    <header class="nav" :class="{ 'is-compact': isNavCompact }">
+      <div class="nav-bar">
+        <NuxtLink to="/" class="rounded-md focus-visible:outline-2 focus-visible:outline-offset-4" aria-label="BlockStrat home">
+          <BrandLogo />
         </NuxtLink>
-        <nav class="hidden items-center gap-8 text-[15px] font-medium text-white/75 md:flex" aria-label="Main">
+        <nav class="nav-links hidden md:flex" aria-label="Main">
           <a href="#how" class="nav-link">How it works</a>
           <a href="#ai" class="nav-link">Assistant</a>
+          <a href="#markets" class="nav-link">Results</a>
           <a href="#honest" class="nav-link">How it counts</a>
           <a href="#faq" class="nav-link">Questions</a>
         </nav>
@@ -70,24 +142,31 @@ const FAQ = [
             Open the builder
           </NuxtLink>
         </div>
-      </header>
+      </div>
+    </header>
 
-      <div class="wrap relative z-10 pb-24 pt-14 lg:pb-28 lg:pt-28">
-        <div class="hero-copy grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
-          <h1 class="headline">
-            Test it before you trade it
+    <section class="hero">
+      <div ref="ground" class="ground" aria-hidden="true" />
+
+
+      <div class="wrap relative z-10 pb-24 pt-36 lg:pb-28 lg:pt-48">
+        <div class="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] lg:items-start">
+          <h1 class="headline" aria-label="Test it before you trade it">
+            <template v-for="(word, index) in HEADLINE_WORDS" :key="word + index">
+              <span class="word" aria-hidden="true"><span :style="{ '--i': index }">{{ word }}</span></span>{{ ' ' }}
+            </template>
           </h1>
           <div class="lg:pt-3">
-            <p class="max-w-[33rem] text-[19px] leading-[1.6] text-white/75">
+            <p class="enter-step max-w-[33rem] text-[19px] leading-[1.6] text-[var(--ink-soft)]" style="--step: 0">
               Snap a strategy together from blocks, or just describe it. BlockStrat replays it on real Binance prices,
               fees included, and tells you if it beat simply holding.
             </p>
             <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <NuxtLink to="/app" class="btn btn-lime">
+              <NuxtLink to="/app" class="btn btn-lime enter-step" style="--step: 1">
                 Open the builder
                 <UiIcon name="arrow-right" class="arrow" />
               </NuxtLink>
-              <span class="flex items-center gap-3 text-[14px] text-white/70">
+              <span class="enter-step flex items-center gap-3 text-[14px] text-[var(--ink-soft)]" style="--step: 2">
                 <span class="flex -space-x-2">
                   <img v-for="coin in COINS" :key="coin" :src="`/brand-icons/${coin}.svg`" alt="" class="coin">
                 </span>
@@ -97,30 +176,42 @@ const FAQ = [
           </div>
         </div>
 
-        <div class="product mt-14">
-          <LandingProductWindow />
+        <div class="product-tilt mt-14">
+          <div class="product">
+            <LandingProductWindow />
+          </div>
         </div>
       </div>
     </section>
 
-    <div id="how" class="canvas scroll-mt-4">
+    <div id="how" class="scroll-mt-4">
       <LandingPinnedSteps />
     </div>
 
-    <section id="ai" class="dark scroll-mt-4">
-      <div class="wrap py-24 lg:py-32">
-        <div class="max-w-[44rem]">
-          <h2 class="section-title text-white">
+    <section id="ai" class="band scroll-mt-4">
+      <div class="wrap grid gap-12 py-24 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center lg:py-32">
+        <div>
+          <h2 class="section-title">
             Describe a strategy and get blocks you can edit
           </h2>
-          <p class="mt-5 text-[18px] leading-[1.6] text-white/70">
-            The assistant builds the same blocks you would, so you see exactly what it understood. If part of your idea
-            can't be built, it tells you.
+          <p class="mt-5 max-w-[30rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
+            Write the idea the way you would text a friend. The assistant turns it into blocks and a real backtest.
           </p>
+          <dl class="mt-10 grid gap-6">
+            <div v-for="fact in ASSISTANT_FACTS" :key="fact.title" class="fact">
+              <UiIcon :name="fact.icon" class="fact-icon" />
+              <div>
+                <dt class="font-bold">
+                  {{ fact.title }}
+                </dt>
+                <dd class="mt-1 text-[15px] leading-[1.55] text-[var(--ink-soft)]">
+                  {{ fact.text }}
+                </dd>
+              </div>
+            </div>
+          </dl>
         </div>
-        <div class="mt-14">
-          <LandingAiDemo />
-        </div>
+        <LandingAiDemo class="min-w-0" />
       </div>
     </section>
 
@@ -131,7 +222,7 @@ const FAQ = [
             The same rules can win on one coin and lose on the next
           </h2>
           <p class="max-w-[30rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
-            Three strategies, three coins, the same 16 months and a 5% stop. Lime means the rules beat simply holding.
+            Pick a strategy and see it on three coins. Each starts with $10,000, over the same 16 months.
           </p>
         </div>
         <div class="mt-12">
@@ -140,7 +231,7 @@ const FAQ = [
       </div>
     </section>
 
-    <section id="honest" class="canvas scroll-mt-4">
+    <section id="honest" class="tinted scroll-mt-4">
       <div class="wrap py-24 lg:py-32">
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
           <h2 class="section-title">
@@ -153,18 +244,18 @@ const FAQ = [
         </div>
 
         <div class="bento mt-14">
-          <article class="tile tile-wide">
-            <h3 class="tile-title">
-              Orders fill at the next candle
-            </h3>
-            <p class="tile-text">
-              A signal on a candle's close buys at the next candle's open, the price you could really have got
-            </p>
-            <div class="mt-5 h-[230px]">
-              <ClientOnly>
-                <LandingSignalCandles />
-              </ClientOnly>
+          <article class="tile tile-wide tile-chart">
+            <div class="tile-head">
+              <h3 class="tile-title">
+                Orders fill at the next candle
+              </h3>
+              <p class="tile-text">
+                A signal on a candle's close buys at the next candle's open, the price you could really have got
+              </p>
             </div>
+            <ClientOnly>
+              <LandingSignalCandles />
+            </ClientOnly>
           </article>
 
           <article class="tile">
@@ -189,12 +280,15 @@ const FAQ = [
               Always next to holding
             </h3>
             <p class="tile-text">
-              If simply holding the coin did better, the result says so
+              Both start from the same $10,000. If simply holding did better, the result says so
             </p>
-            <div class="mt-6 grid gap-4 text-[15px]">
+            <p class="edge mt-6">
+              {{ featuredGap.dollars }} <span>{{ featuredGap.words }}</span>
+            </p>
+            <div class="mt-5 grid gap-4 text-[15px]">
               <div>
                 <div class="flex justify-between">
-                  <span>Trend with filter, SOL</span><span class="font-bold tabular-nums text-[var(--color-gain)]">+{{ featuredReturn }}%</span>
+                  <span>Trend with filter, SOL</span><span class="font-bold tabular-nums text-[var(--gain-ink)]">+{{ featuredReturn }}%</span>
                 </div>
                 <div class="diverging mt-2">
                   <span class="diverging-gain" :style="{ width: `${featuredReturn}%` }" />
@@ -202,7 +296,7 @@ const FAQ = [
               </div>
               <div>
                 <div class="flex justify-between">
-                  <span>Holding SOL</span><span class="font-bold tabular-nums text-[var(--color-loss)]">−{{ Math.abs(featuredHolding) }}%</span>
+                  <span>Holding SOL</span><span class="font-bold tabular-nums text-[var(--loss-ink)]">−{{ Math.abs(featuredHolding) }}%</span>
                 </div>
                 <div class="diverging mt-2">
                   <span class="diverging-loss" :style="{ width: `${Math.abs(featuredHolding)}%` }" />
@@ -211,20 +305,40 @@ const FAQ = [
             </div>
           </article>
 
-          <article class="tile tile-wide">
-            <h3 class="tile-title">
-              The worst drop, in plain sight
-            </h3>
-            <p class="tile-text">
-              Even the strategy that beat holding spent weeks {{ featuredDrawdown }}% under its high, shown right next to the return
-            </p>
-            <div class="mt-5 h-[200px]">
-              <ClientOnly>
-                <LandingDrawdownChart market="SOLUSDT" :run="featuredRun" />
-              </ClientOnly>
+          <article class="tile tile-wide tile-chart">
+            <div class="tile-head">
+              <h3 class="tile-title">
+                The worst drop, in plain sight
+              </h3>
+              <p class="tile-text">
+                Even the strategy that beat holding spent weeks {{ featuredDrawdown }}% under its high, shown right next to the return
+              </p>
             </div>
+            <ClientOnly>
+              <LandingDrawdownChart market="SOLUSDT" :run="featuredRun" />
+            </ClientOnly>
           </article>
         </div>
+      </div>
+    </section>
+
+    <section class="wrap pt-24 lg:pt-28" aria-labelledby="quotes-title">
+      <h2 id="quotes-title" class="section-title max-w-[36rem]">
+        What early testers found
+      </h2>
+      <div class="mt-12 grid gap-4 lg:grid-cols-3">
+        <figure v-for="quote in QUOTES" :key="quote.name" class="quote">
+          <p class="quote-result">
+            {{ quote.result }}
+          </p>
+          <blockquote class="mt-3 text-[17px] leading-[1.6]">
+            “{{ quote.text }}”
+          </blockquote>
+          <figcaption class="mt-6 flex items-center gap-3 text-[14px] text-[var(--muted)]">
+            <span class="initials" aria-hidden="true">{{ quote.name.slice(0, 1) }}</span>
+            <span><span class="font-bold text-[var(--ink)]">{{ quote.name }}</span>, {{ quote.detail }}</span>
+          </figcaption>
+        </figure>
       </div>
     </section>
 
@@ -253,14 +367,14 @@ const FAQ = [
       </dl>
     </section>
 
-    <footer class="closing">
+    <footer class="closing band">
       <div class="wrap pt-24 lg:pt-28">
         <div class="flex flex-col items-start gap-8 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 class="section-title max-w-[32rem] text-white">
+            <h2 class="section-title max-w-[32rem]">
               Your first test takes about a minute
             </h2>
-            <p class="mt-4 text-[18px] text-white/70">
+            <p class="mt-4 text-[18px] text-[var(--ink-soft)]">
               Free, no sign-up, with an example strategy already loaded
             </p>
           </div>
@@ -269,18 +383,57 @@ const FAQ = [
             <UiIcon name="arrow-right" class="arrow" />
           </NuxtLink>
         </div>
+        <div class="footer-grid">
+          <div class="max-w-[22rem]">
+            <BrandLogo />
+            <p class="mt-4 text-[15px] leading-[1.6] text-[var(--ink-soft)]">
+              A no-code backtester for crypto trading ideas. It never trades, never asks for exchange keys and is not investment advice.
+            </p>
+          </div>
+          <nav aria-label="Footer">
+            <h3 class="footer-heading">
+              Product
+            </h3>
+            <ul class="footer-list">
+              <li><NuxtLink to="/app" class="footer-link">Open the builder</NuxtLink></li>
+              <li><a href="#how" class="footer-link">How it works</a></li>
+              <li><a href="#ai" class="footer-link">Assistant</a></li>
+              <li><a href="#honest" class="footer-link">How it counts</a></li>
+              <li><a href="#faq" class="footer-link">Questions</a></li>
+            </ul>
+          </nav>
+          <div>
+            <h3 class="footer-heading">
+              Markets
+            </h3>
+            <ul class="footer-list footer-list--pairs">
+              <li v-for="pair in PAIRS" :key="pair">
+                {{ pair }}/USDT
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="footer-heading">
+              Under the hood
+            </h3>
+            <ul class="footer-list">
+              <li class="flex items-center gap-2">
+                <img src="/brand-icons/binance.svg" alt="" class="footer-icon"> Binance market data
+              </li>
+              <li class="flex items-center gap-2">
+                <img src="/brand-icons/gemini.svg" alt="" class="footer-icon"> Gemini for the assistant
+              </li>
+              <li>Python backtests, Nuxt front end</li>
+              <li>1h, 4h and 1d candles since 2017</li>
+            </ul>
+          </div>
+        </div>
         <p class="wordmark" aria-hidden="true">
           BlockStrat
         </p>
-        <div class="flex flex-col gap-4 border-t border-white/15 py-8 text-[14px] text-white/70 md:flex-row md:items-center md:justify-between">
-          <span>© 2026 BlockStrat · Simulations on historical Binance data, not investment advice</span>
-          <nav class="flex flex-wrap gap-x-6 gap-y-2" aria-label="Footer">
-            <NuxtLink to="/app" class="footer-link">Builder</NuxtLink>
-            <a href="#how" class="footer-link">How it works</a>
-            <a href="#honest" class="footer-link">How it counts</a>
-            <a href="#faq" class="footer-link">Questions</a>
-          </nav>
-        </div>
+        <p class="border-t border-[var(--line)] py-8 text-[14px] text-[var(--muted)]">
+          © 2026 BlockStrat. The tester quotes on this page are placeholders.
+        </p>
       </div>
     </footer>
   </div>
@@ -297,8 +450,31 @@ const FAQ = [
   --tint: rgb(13 27 36 / 0.05);
   --tint-strong: #e7edf0;
   --canvas-bg: var(--color-canvas);
-  --canvas-dots: var(--color-dots);
   --card-shadow: 0 1px 2px rgb(13 27 36 / 0.05), 0 20px 40px -28px rgb(13 27 36 / 0.35);
+  --hero-bg: #e9f2f3;
+  --band-bg: #e4eef0;
+  --panel: #ffffff;
+  --panel-2: #f4f8f9;
+  --panel-ink: #0d1b24;
+  --panel-soft: #56676f;
+  --panel-line: rgb(13 27 36 / 0.09);
+  --panel-fill: rgb(13 27 36 / 0.05);
+  --panel-fill-strong: rgb(13 27 36 / 0.09);
+  --panel-shadow: inset 0 0 0 1px rgb(13 27 36 / 0.08), 0 30px 60px -40px rgb(13 27 36 / 0.45);
+  --gain-ink: var(--color-gain);
+  --loss-ink: var(--color-loss);
+  --accent-ink: var(--color-gain);
+  --result-bg: rgb(14 153 99 / 0.08);
+  --result-ink: #0b6e48;
+  --code-key: #0e6f78;
+  --code-string: #0b7a4f;
+  --code-number: #2d5bd1;
+  --code-punctuation: #7a8c94;
+  --focus: var(--color-petrol);
+  --logo-ink: var(--color-ink);
+  --logo-accent: var(--color-gain);
+  --wordmark: #d2e2e5;
+  --nav-glass: rgb(255 255 255 / 0.78);
   font-family: var(--font-sans);
 }
 
@@ -312,8 +488,31 @@ const FAQ = [
   --tint: rgb(255 255 255 / 0.06);
   --tint-strong: rgb(255 255 255 / 0.1);
   --canvas-bg: #0a2226;
-  --canvas-dots: rgb(255 255 255 / 0.07);
   --card-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 20px 40px -28px rgb(0 0 0 / 0.6);
+  --hero-bg: #082a30;
+  --band-bg: #082a30;
+  --panel: #0b2125;
+  --panel-2: #061e23;
+  --panel-ink: #ffffff;
+  --panel-soft: rgb(214 226 230 / 0.75);
+  --panel-line: rgb(255 255 255 / 0.08);
+  --panel-fill: rgb(255 255 255 / 0.06);
+  --panel-fill-strong: rgb(255 255 255 / 0.14);
+  --panel-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 30px 60px -40px rgb(0 0 0 / 0.6);
+  --gain-ink: var(--color-gain-bright);
+  --loss-ink: var(--color-loss-bright);
+  --accent-ink: var(--color-lime);
+  --result-bg: rgb(200 242 90 / 0.1);
+  --result-ink: #e7f9b8;
+  --code-key: #7fe3d6;
+  --code-string: var(--color-lime);
+  --code-number: #b8d0ff;
+  --code-punctuation: #7f9da2;
+  --focus: var(--color-lime);
+  --logo-ink: #ffffff;
+  --logo-accent: var(--color-lime);
+  --wordmark: var(--color-petrol);
+  --nav-glass: rgb(8 42 48 / 0.72);
 }
 
 /* Shared by the page and its section components. */
@@ -353,52 +552,163 @@ const FAQ = [
   font-weight: 700;
   line-height: 1;
   letter-spacing: -0.025em;
-  color: #ffffff;
+  color: var(--ink);
   text-wrap: balance;
 }
 
-/* Hero: petrol ground, one still pool of light, film grain over it. */
+/* The nav: the full row over the hero, then a smaller floating glass bar once the page has moved. */
+.nav {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  padding-top: 0;
+  transition: padding-top 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.nav-bar {
+  display: flex;
+  width: min(100% - 2.5rem, 1320px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-inline: auto;
+  border-radius: 16px;
+  padding: 1.1rem 0;
+  transition:
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 240ms,
+    box-shadow 240ms;
+}
+
+@media (min-width: 640px) {
+  .nav-bar {
+    width: min(100% - 4rem, 1320px);
+  }
+}
+
+.nav.is-compact {
+  padding-top: 0.6rem;
+}
+
+.nav.is-compact .nav-bar {
+  width: min(100% - 1.5rem, 980px);
+  padding: 0.45rem 0.5rem 0.45rem 1rem;
+  background: var(--nav-glass);
+  box-shadow: inset 0 0 0 1px var(--line), 0 16px 40px -24px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(14px) saturate(1.4);
+}
+
+.nav.is-compact .btn-small {
+  padding: 0.5rem 0.9rem;
+  font-size: 14px;
+}
+
+.nav-links {
+  align-items: center;
+  gap: 1.75rem;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.nav.is-compact .nav-links {
+  gap: 1.25rem;
+  font-size: 14px;
+}
+
+/* Hero: the theme's ground with the grain-gradient shader drifting under the words. */
 .hero {
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  background: var(--color-petrol-deep);
+  background: var(--hero-bg);
 }
 
-.glow {
+.ground {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: radial-gradient(45% 55% at 78% 22%, rgb(200 242 90 / 0.28), transparent 70%);
+  opacity: 0;
+  transition: opacity 1200ms ease-out;
 }
 
-.grain {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 0.2;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
+.ground[data-fx-mounted] {
+  opacity: 1;
+}
+
+/* The product window stands tilted back like a screen on a desk, and straightens as the page scrolls
+   into it. Scroll-driven where the browser supports it; elsewhere it simply stands flat. */
+.product-tilt {
+  perspective: 1800px;
 }
 
 .product {
   border-radius: 28px;
-  box-shadow: 0 50px 100px -40px rgb(0 0 0 / 0.7);
+  box-shadow: 0 50px 100px -40px rgb(0 0 0 / 0.45);
+  transform-origin: 50% 0;
+  animation: slide-up 1100ms var(--ease-enter) 200ms backwards;
 }
 
-.hero-copy > * {
-  animation: rise 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+@supports (animation-timeline: scroll()) {
+  .product-tilt > .product {
+    animation:
+      slide-up 1100ms var(--ease-enter) 200ms backwards,
+      straighten linear both;
+    animation-timeline: auto, scroll(root);
+    animation-range: normal, 0 32vh;
+    animation-composition: replace, add;
+  }
 }
 
-.hero-copy > :nth-child(2) {
-  animation-delay: 90ms;
+@keyframes straighten {
+  from {
+    transform: rotateX(12deg) scale(0.95);
+  }
+
+  to {
+    transform: none;
+  }
 }
 
-@keyframes rise {
+/* The entrance, once on load: each word rises out of its own mask, then the lead, the button and the
+   coins fade up in turn, and the product window settles. Transform and opacity only. */
+.word {
+  display: inline-block;
+  overflow: hidden;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+  vertical-align: top;
+}
+
+.word > span {
+  display: inline-block;
+  animation: word-rise 700ms var(--ease-enter) backwards;
+  animation-delay: calc(80ms + var(--i) * 45ms);
+}
+
+.enter-step {
+  animation: step-up 520ms var(--ease-enter) backwards;
+  animation-delay: calc(520ms + var(--step) * 60ms);
+}
+
+@keyframes word-rise {
+  from {
+    transform: translateY(calc(100% + 0.2em));
+  }
+}
+
+@keyframes step-up {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(12px);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(72px);
   }
 }
 
@@ -408,12 +718,12 @@ const FAQ = [
   border-radius: 999px;
   background: #ffffff;
   padding: 3px;
-  box-shadow: 0 0 0 2px var(--color-petrol-deep);
+  box-shadow: 0 0 0 2px var(--hero-bg);
 }
 
 .nav-link:hover,
 .footer-link:hover {
-  color: #ffffff;
+  color: var(--ink);
 }
 
 .btn {
@@ -424,6 +734,7 @@ const FAQ = [
   padding: 0.95rem 1.5rem;
   font-size: 16px;
   font-weight: 700;
+  white-space: nowrap;
   transition: background-color 160ms, transform 120ms;
 }
 
@@ -465,18 +776,18 @@ const FAQ = [
   place-items: center;
   cursor: pointer;
   border-radius: 10px;
-  color: rgb(255 255 255 / 0.8);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+  color: var(--ink-soft);
+  box-shadow: inset 0 0 0 1px var(--line);
   transition: background-color 160ms, color 160ms;
 }
 
 .theme-toggle:hover {
-  background: rgb(255 255 255 / 0.08);
-  color: #ffffff;
+  background: var(--tint);
+  color: var(--ink);
 }
 
 .theme-toggle:focus-visible {
-  outline: 2px solid var(--color-lime);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -489,20 +800,33 @@ const FAQ = [
 .btn:focus-visible,
 .nav-link:focus-visible,
 .footer-link:focus-visible {
-  outline: 2px solid var(--color-lime);
+  outline: 2px solid var(--focus);
   outline-offset: 3px;
 }
 
-/* The editor's dotted canvas, used as the ground for the product sections. */
-.canvas {
-  background-color: var(--canvas-bg);
-  background-image: radial-gradient(var(--canvas-dots) 1.1px, transparent 1.1px);
-  background-size: 22px 22px;
+/* A quiet tinted ground that sets the product sections apart from the white ones. */
+.tinted {
+  background: var(--canvas-bg);
 }
 
-.dark {
-  background: var(--color-petrol-deep);
-  color: #ffffff;
+.fact {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.fact-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 10px;
+  background: var(--panel-fill);
+  padding: 0.55rem;
+  color: var(--accent-ink);
+}
+
+/* The deeper ground that frames the assistant and the footer. */
+.band {
+  background: var(--band-bg);
 }
 
 .bento {
@@ -532,6 +856,25 @@ const FAQ = [
   box-shadow: var(--card-shadow);
 }
 
+/* Chart tiles are the hero's chart window in small: the same panel, colours and chart strip. */
+.tile-chart {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel);
+  padding: 0 0 0.75rem;
+  color: var(--panel-ink);
+  box-shadow: var(--panel-shadow);
+}
+
+.tile-head {
+  padding: 1.75rem 1.75rem 0.75rem;
+}
+
+.tile-chart .tile-text {
+  color: var(--panel-soft);
+}
+
 .tile-title {
   font-size: 19px;
   font-weight: 700;
@@ -542,6 +885,21 @@ const FAQ = [
   max-width: 30rem;
   font-size: 15px;
   line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.edge {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.edge span {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
   color: var(--ink-soft);
 }
 
@@ -586,7 +944,7 @@ const FAQ = [
 }
 
 .fees .fees-total dd {
-  color: var(--color-loss);
+  color: var(--loss-ink);
 }
 
 /* Bars that grow out of one centre line: right for a gain, left for a loss. */
@@ -617,35 +975,110 @@ const FAQ = [
 
 .diverging-gain {
   left: 50%;
-  background: var(--color-gain);
+  background: var(--gain-ink);
 }
 
 .diverging-loss {
   right: 50%;
-  background: var(--color-loss);
+  background: var(--loss-ink);
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background: var(--surface);
+  padding: 1.75rem;
+  box-shadow: var(--card-shadow);
+}
+
+.quote blockquote {
+  flex: 1;
+}
+
+.quote-result {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent-ink);
+}
+
+.initials {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--tint-strong);
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.footer-grid {
+  display: grid;
+  gap: 2.5rem;
+  margin-top: 5rem;
+  border-top: 1px solid var(--line);
+  padding-top: 3rem;
+}
+
+@media (min-width: 768px) {
+  .footer-grid {
+    grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  }
+}
+
+.footer-heading {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.footer-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.footer-list--pairs {
+  grid-template-columns: repeat(2, max-content);
+  column-gap: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.footer-icon {
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .closing {
   overflow: hidden;
-  background: var(--color-petrol-deep);
-  color: #ffffff;
 }
 
 /* The name set large and quiet across the width, as the page's last word. */
 .wordmark {
-  margin-top: 4rem;
+  margin-top: 3rem;
   font-size: clamp(4.5rem, 17vw, 16rem);
   font-weight: 900;
   line-height: 0.8;
   letter-spacing: -0.02em;
-  color: var(--color-petrol);
+  color: var(--wordmark);
   white-space: nowrap;
   padding-bottom: 1.5rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-copy > * {
+  .word > span,
+  .enter-step,
+  .product,
+  .product-tilt > .product {
     animation: none;
+  }
+
+  .nav,
+  .nav-bar {
+    transition: none;
   }
 }
 </style>
