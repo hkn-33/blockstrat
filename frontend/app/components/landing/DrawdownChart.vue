@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   BaselineSeries,
-  ColorType,
   createChart,
   createSeriesMarkers,
   type IChartApi,
@@ -13,10 +12,11 @@ import {
 import type { DemoMarket, DemoRun } from '~/composables/useLandingDemo'
 
 // How far the balance sat below its last high, day by day: the "underwater" chart of a strategy report,
-// with the deepest point marked.
+// in the hero chart's style, with the deepest point marked.
 const props = defineProps<{ market: DemoMarket, run: DemoRun }>()
 
 const container = ref<HTMLDivElement | null>(null)
+const coin = computed(() => demoMarket(props.market))
 const resolvedTheme = useResolvedChartTheme(() => 'auto')
 let chart: IChartApi | undefined
 let series: ISeriesApi<'Baseline'> | undefined
@@ -31,6 +31,9 @@ const points = computed(() => {
   })
 })
 
+const deepest = computed(() => points.value.reduce((lowest, point) => (point.value < lowest.value ? point : lowest)))
+const maxDrawdown = computed(() => formatSignedPercent(-Math.abs(props.run.metrics.max_drawdown_pct)))
+
 function applyTheme(): void {
   if (!chart || !series || !markers) return
   const colours = chartPalette(resolvedTheme.value)
@@ -43,26 +46,19 @@ function applyTheme(): void {
     bottomFillColor1: `${colours.downFill}0.05)`,
     bottomFillColor2: `${colours.downFill}0.4)`,
   })
-  const deepest = points.value.reduce((lowest, point) => (point.value < lowest.value ? point : lowest))
+  // The label quotes the backtest's own max drawdown (measured on 4h bars), the number the strategy
+  // tester shows, at the deepest point of these daily closes.
   markers.setMarkers([
-    { time: deepest.time, position: 'belowBar', color: colours.down, shape: 'arrowUp', text: `Worst point ${formatSignedPercent(deepest.value)}` },
+    { time: deepest.value.time, position: 'belowBar', color: colours.down, shape: 'arrowUp', text: `Worst point ${maxDrawdown.value}` },
   ])
 }
 
 onMounted(() => {
+  const base = baseChartOptions()
   chart = createChart(container.value!, {
-    autoSize: true,
-    layout: {
-      background: { type: ColorType.Solid, color: 'transparent' },
-      fontFamily: 'Satoshi, ui-sans-serif, system-ui, sans-serif',
-      fontSize: 11,
-      attributionLogo: false,
-    },
+    ...base,
     rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.18 } },
-    timeScale: { borderVisible: false },
-    localization: { locale: 'en-US', priceFormatter: (value: number) => `${Math.round(value)}%` },
-    handleScroll: false,
-    handleScale: false,
+    localization: { ...base.localization, priceFormatter: (value: number) => `${Math.round(value)}%` },
   })
   series = chart.addSeries(BaselineSeries, {
     baseValue: { type: 'price', price: 0 },
@@ -70,6 +66,8 @@ onMounted(() => {
     lineWidth: 2,
     priceLineVisible: false,
     lastValueVisible: false,
+    // Whole steps of 10% down to just past the worst point, so the axis ends on a clean label.
+    autoscaleInfoProvider: () => ({ priceRange: { minValue: Math.floor(deepest.value.value / 10) * 10, maxValue: 0 } }),
   })
   series.setData(points.value)
   markers = createSeriesMarkers(series, [])
@@ -83,5 +81,10 @@ onBeforeUnmount(() => chart?.remove())
 </script>
 
 <template>
-  <div ref="container" class="h-full w-full" role="img" aria-label="How far the balance sat below its last high over time, with the deepest point marked" />
+  <div>
+    <LandingChartBar :icon="coin.icon" :name="coin.label" detail="Trend with filter, balance below its last high">
+      <span>Max drawdown <b class="text-[var(--loss-ink)]">{{ maxDrawdown }}</b></span>
+    </LandingChartBar>
+    <div ref="container" class="mx-3 h-[220px]" role="img" aria-label="How far the balance sat below its last high over time, with the deepest point marked" />
+  </div>
 </template>

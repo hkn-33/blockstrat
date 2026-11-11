@@ -1,33 +1,36 @@
 <script setup lang="ts">
-// "How it works" as a pinned section: the page holds still while scrolling walks through the three steps,
-// and the picture on the right changes with each one. On narrow screens the steps simply stack.
+// "How it works" as a pinned section: the page holds still while scrolling walks through the three steps.
+// Each step's line fills as you scroll, so it is always clear how much is left, and the picture on the
+// right changes with every bit of scroll: it finishes a little before the step ends, then holds a moment.
+// On narrow screens the steps simply stack, each with its finished picture.
 const STEPS = [
   { title: 'Pick a market and a pace', text: 'Ten crypto pairs from Binance, checked every hour, every four hours or once a day' },
   { title: 'Snap the rules together', text: 'Drop a ready condition into place and change its numbers: RSI, moving averages, MACD, Bollinger Bands' },
   { title: 'Read the verdict', text: 'Every trade on the chart, your balance underneath, and whether it beat simply holding the coin' },
 ]
 
-const MARKETS = [
-  { icon: 'bitcoin', pair: 'BTC/USDT', name: 'Bitcoin' },
-  { icon: 'ethereum', pair: 'ETH/USDT', name: 'Ethereum' },
-  { icon: 'solana', pair: 'SOL/USDT', name: 'Solana' },
-  { icon: 'binance', pair: 'BNB/USDT', name: 'BNB' },
-]
-
-const RULES = demoRules('combo', 5)
-
-const run = demoRun('combo', 'SOLUSDT', 5)
 const section = ref<HTMLElement | null>(null)
-const active = ref(0)
+const progress = ref(0)
+const active = computed(() => Math.min(STEPS.length - 1, Math.floor(progress.value * STEPS.length)))
+
+function stepProgress(index: number): number {
+  return Math.min(1, Math.max(0, progress.value * STEPS.length - index))
+}
+
+function pictureProgress(index: number): number {
+  return Math.min(1, stepProgress(index) / 0.85)
+}
 
 function onScroll(): void {
   const element = section.value
   if (!element) return
-  const rect = element.getBoundingClientRect()
   const travel = element.offsetHeight - window.innerHeight
-  if (travel <= 0) return
-  const progress = Math.min(0.999, Math.max(0, -rect.top / travel))
-  active.value = Math.floor(progress * STEPS.length)
+  // Not pinned (narrow screens): every step and its picture shows in full.
+  if (travel <= 0) {
+    progress.value = 0.999
+    return
+  }
+  progress.value = Math.min(0.999, Math.max(0, -element.getBoundingClientRect().top / travel))
 }
 
 onMounted(() => {
@@ -46,55 +49,31 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
           <h2 id="steps-title" class="section-title">
             From idea to verdict in three steps
           </h2>
-          <ol class="mt-10 grid gap-2">
-            <li v-for="(step, index) in STEPS" :key="step.title" class="step" :class="{ 'is-active': index === active }">
-              <span class="step-number">{{ index + 1 }}</span>
-              <div>
-                <h3 class="text-[20px] font-bold tracking-[-0.01em]">
+          <ol class="mt-10 grid">
+            <li
+              v-for="(step, index) in STEPS"
+              :key="step.title"
+              class="step"
+              :class="{ 'is-active': index === active, 'is-done': index < active }"
+              :style="{ '--fill': stepProgress(index) }"
+            >
+              <span class="step-line" aria-hidden="true" />
+              <div class="step-body">
+                <h3 class="text-[20px] font-bold">
                   {{ step.title }}
                 </h3>
                 <p class="step-text">
                   {{ step.text }}
                 </p>
+                <LandingStepVisual :step="index" class="mt-6 lg:hidden" />
               </div>
             </li>
           </ol>
         </div>
 
-        <div class="visual">
+        <div class="visual hidden lg:grid">
           <Transition name="swap" mode="out-in">
-            <div v-if="active === 0" key="market" class="panel">
-              <div class="search">
-                <UiIcon name="search" />
-                <span class="text-[var(--ink)]">ETH</span>
-                <span class="search-caret" />
-              </div>
-              <ul class="mt-3 grid gap-1">
-                <li v-for="(market, index) in MARKETS" :key="market.pair" class="market" :class="{ 'is-on': index === 1 }">
-                  <img :src="`/brand-icons/${market.icon}.svg`" alt="" class="coin">
-                  <span>
-                    <span class="block font-bold">{{ market.pair }}</span>
-                    <span class="block text-[13px] text-[var(--muted)]">{{ market.name }} · since 2017</span>
-                  </span>
-                  <UiIcon v-if="index === 1" name="check" class="ml-auto text-[var(--color-gain)]" />
-                </li>
-              </ul>
-              <div class="mt-4 flex items-center justify-between gap-3 text-[14px] text-[var(--muted)]">
-                Check every
-                <span class="segmented"><span>1 hour</span><span class="is-on">4 hours</span><span>1 day</span></span>
-              </div>
-            </div>
-
-            <div v-else-if="active === 1" key="blocks" class="panel panel--blocks">
-              <LandingRuleBuilder market="SOLUSDT" timeframe="4 hours" :entry="RULES.entry" :exit="RULES.exit" theme="auto" entrance drop-slot />
-            </div>
-
-            <div v-else key="verdict" class="panel panel--dark">
-              <ClientOnly>
-                <LandingTvChart market="SOLUSDT" :run="run" :height="280" />
-              </ClientOnly>
-              <LandingStrategyTester market="SOLUSDT" :run="run" />
-            </div>
+            <LandingStepVisual :key="active" :step="active" :progress="pictureProgress(active)" />
           </Transition>
         </div>
       </div>
@@ -130,173 +109,82 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 .step {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 1rem;
-  border-radius: 16px;
-  padding: 1rem 1.1rem;
+  gap: 1.1rem;
   color: var(--muted);
-  transition: background-color 300ms, color 300ms;
+  transition: color 300ms;
 }
 
-.step.is-active {
-  background: var(--surface);
+.step.is-active,
+.step.is-done {
   color: var(--ink);
-  box-shadow: 0 1px 2px var(--tint), 0 16px 32px -24px rgb(13 27 36 / 0.4);
 }
 
-.step-number {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border-radius: 10px;
-  background: var(--tint);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+/* A line beside each step that fills with its share of the scroll. */
+.step-line {
+  position: relative;
+  width: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line);
 }
 
-.step.is-active .step-number {
-  background: var(--color-petrol);
-  color: var(--color-lime);
+.step-line::after {
+  position: absolute;
+  inset: 0;
+  background: var(--gain-ink);
+  transform: scaleY(var(--fill));
+  transform-origin: top;
+  content: "";
+}
+
+.step-body {
+  padding-block: 0.4rem 1.75rem;
 }
 
 .step-text {
-  overflow: hidden;
+  margin-top: 0.35rem;
   font-size: 16px;
   line-height: 1.6;
   color: var(--ink-soft);
 }
 
-.step.is-active .step-text {
-  margin-top: 0.35rem;
-}
-
 @media (min-width: 1024px) {
   .step:not(.is-active) .step-text {
-    height: 0;
+    display: none;
   }
 }
 
 .visual {
-  display: grid;
-  min-height: 26rem;
-  align-items: center;
-  padding: 0;
-}
-
-.panel {
-  border-radius: 16px;
-  background: var(--surface);
-  padding: 1.25rem;
-  box-shadow: 0 1px 2px var(--tint), 0 20px 40px -28px rgb(13 27 36 / 0.4);
-}
-
-.panel--dark {
-  overflow: hidden;
-  background: #0b2125;
-  padding: 0;
-}
-
-.panel--blocks {
-  background: transparent;
-  padding: 0;
-  box-shadow: none;
-}
-
-.coin {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
-}
-
-.search {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-radius: 12px;
-  background: var(--tint);
-  padding: 0.7rem 0.9rem;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-.search-caret {
-  width: 2px;
-  height: 1.1em;
-  margin-left: -0.45rem;
-  background: var(--ink);
-  animation: blink 900ms steps(1) infinite;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-.market {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  border-radius: 14px;
-  padding: 0.6rem 0.7rem;
-  font-size: 15px;
-}
-
-.market.is-on {
-  background: var(--surface);
-  box-shadow: 0 0 0 1.5px var(--color-petrol), 0 10px 20px -14px rgb(14 63 71 / 0.5);
-}
-
-.segmented {
-  display: inline-flex;
-  gap: 2px;
-  border-radius: 10px;
-  background: var(--tint);
-  padding: 3px;
-}
-
-.segmented span {
-  border-radius: 7px;
-  padding: 0.3rem 0.7rem;
-  font-weight: 600;
-}
-
-.segmented .is-on {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 0 1px 2px rgb(13 27 36 / 0.12);
+  /* One fixed height for all three pictures, so changing step never moves the column beside it. */
+  height: 34rem;
+  align-content: center;
 }
 
 .swap-enter-active {
-  transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1), transform 260ms cubic-bezier(0.16, 1, 0.3, 1), filter 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 320ms cubic-bezier(0.22, 1, 0.36, 1), transform 320ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .swap-leave-active {
-  transition: opacity 200ms ease-in, transform 200ms ease-in, filter 200ms ease-in;
+  transition: opacity 220ms cubic-bezier(0.4, 0, 1, 1), transform 220ms cubic-bezier(0.4, 0, 1, 1), filter 220ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 .swap-enter-from {
   opacity: 0;
-  transform: translateY(16px) scale(0.98);
+  transform: translateY(24px) scale(0.98);
   filter: blur(6px);
 }
 
 .swap-leave-to {
   opacity: 0;
-  transform: translateY(-12px) scale(0.98);
-  filter: blur(6px);
+  transform: translateY(-12px) scale(0.99);
+  filter: blur(4px);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .swap-enter-active,
-  .swap-leave-active {
+  .swap-leave-active,
+  .step {
     transition: none;
-  }
-
-  .search-caret {
-    animation: none;
   }
 }
 </style>

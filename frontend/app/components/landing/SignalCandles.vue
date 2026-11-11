@@ -1,28 +1,49 @@
 <script setup lang="ts">
 import {
   CandlestickSeries,
-  ColorType,
   LineStyle,
   createChart,
   createSeriesMarkers,
   type IChartApi,
-  type ISeriesApi,
   type IPriceLine,
+  type ISeriesApi,
   type ISeriesMarkersPluginApi,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts'
 
-// A close-up in the same chart style as the hero: the signal fires on one candle's close, the order fills
-// at the next open. The candles are an illustration, not market data.
-const CANDLES: [number, number, number, number][] = [
-  [100, 104, 98, 103], [103, 106, 101, 102], [102, 103, 97, 98], [98, 100, 95, 96], [96, 99, 94, 98],
-  [98, 101, 96, 97], [97, 98, 92, 93], [93, 95, 90, 94], [94, 99, 93, 98], [98, 103, 97, 102],
-  [102.6, 107, 101, 106], [106, 109, 104, 108], [108, 112, 107, 111], [111, 113, 108, 109], [109, 115, 108, 114],
-]
-const SIGNAL_INDEX = 9
+// A close-up in the hero chart's own style: a slide, the buy signal on one candle's close, and the order
+// filled at the next candle's open. The candles are an illustration, not market data, and the strip says so.
+interface Candle {
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
+const CANDLE_COUNT = 42
+const SIGNAL_INDEX = 26
 const DAY = 86_400
 const START = 1_735_689_600
+
+// A slow slide, then a turn: a smooth path with a little wobble, every candle opening at the last close.
+function illustrativeCandles(): Candle[] {
+  const candles: Candle[] = []
+  let close = 108
+  for (let index = 0; index < CANDLE_COUNT; index++) {
+    const drift = index <= SIGNAL_INDEX ? -0.42 : 0.62
+    const wobble = Math.sin(index * 1.9) * 1.3 + Math.cos(index * 0.7) * 0.6
+    const open = close
+    close = index === SIGNAL_INDEX ? open + 1.6 : open + drift + wobble
+    const high = Math.max(open, close) + 0.4 + Math.abs(Math.sin(index * 2.3)) * 1.1
+    const low = Math.min(open, close) - 0.4 - Math.abs(Math.cos(index * 1.3)) * 1.1
+    candles.push({ open, high, low, close })
+  }
+  return candles
+}
+
+const CANDLES = illustrativeCandles()
+const FILL_PRICE = CANDLES[SIGNAL_INDEX + 1]!.open
 
 const container = ref<HTMLDivElement | null>(null)
 const resolvedTheme = useResolvedChartTheme(() => 'auto')
@@ -43,12 +64,12 @@ function applyTheme(): void {
   series.applyOptions({ upColor: colours.up, downColor: colours.down, wickUpColor: colours.up, wickDownColor: colours.down })
   markers.setMarkers([
     { time: time(SIGNAL_INDEX), position: 'aboveBar', color: colours.text, shape: 'circle', text: 'Signal on close' },
-    { time: time(SIGNAL_INDEX + 1), position: 'belowBar', color: colours.accent, shape: 'arrowUp', text: 'Bought at the next open' },
+    { time: time(SIGNAL_INDEX + 1), position: 'belowBar', color: colours.up, shape: 'arrowUp', text: 'Bought at the next open' },
   ])
   if (fillLine) series.removePriceLine(fillLine)
   fillLine = series.createPriceLine({
-    price: CANDLES[SIGNAL_INDEX + 1]![0],
-    color: colours.accent,
+    price: FILL_PRICE,
+    color: colours.up,
     lineWidth: 1,
     lineStyle: LineStyle.Dashed,
     axisLabelVisible: true,
@@ -57,27 +78,15 @@ function applyTheme(): void {
 }
 
 onMounted(() => {
+  const base = baseChartOptions()
   chart = createChart(container.value!, {
-    autoSize: true,
-    layout: {
-      background: { type: ColorType.Solid, color: 'transparent' },
-      fontFamily: 'Satoshi, ui-sans-serif, system-ui, sans-serif',
-      fontSize: 11,
-      attributionLogo: false,
-    },
-    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.2, bottom: 0.2 } },
-    timeScale: { borderVisible: false, visible: false },
-    localization: { locale: 'en-US' },
-    handleScroll: false,
-    handleScale: false,
+    ...base,
+    rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.18, bottom: 0.14 } },
+    timeScale: { borderVisible: false, visible: false, rightOffset: 2 },
+    localization: { ...base.localization, priceFormatter: (value: number) => value.toFixed(2) },
   })
-  series = chart.addSeries(CandlestickSeries, {
-    borderVisible: false,
-    priceLineVisible: false,
-    lastValueVisible: false,
-    autoscaleInfoProvider: () => ({ priceRange: { minValue: 89, maxValue: 116 } }),
-  })
-  series.setData(CANDLES.map(([open, high, low, close], index) => ({ time: time(index), open, high, low, close })))
+  series = chart.addSeries(CandlestickSeries, { borderVisible: false, priceLineVisible: false, lastValueVisible: true })
+  series.setData(CANDLES.map((candle, index) => ({ time: time(index), ...candle })))
   markers = createSeriesMarkers(series, [])
   applyTheme()
   chart.timeScale().fitContent()
@@ -89,5 +98,10 @@ onBeforeUnmount(() => chart?.remove())
 </script>
 
 <template>
-  <div ref="container" class="h-full w-full" role="img" aria-label="Illustration: a buy signal on one candle's close, filled at the next candle's open price" />
+  <div>
+    <LandingChartBar name="Example candles" detail="how a fill works, not market data">
+      <span>Fill <b>{{ FILL_PRICE.toFixed(2) }}</b></span>
+    </LandingChartBar>
+    <div ref="container" class="mx-3 h-[240px]" role="img" aria-label="Illustration: a buy signal on one candle's close, filled at the next candle's open price" />
+  </div>
 </template>

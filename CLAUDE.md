@@ -49,6 +49,7 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).
 - `frontend/app/utils/`: pure converters (blocks ↔ strategy JSON) and strategy files/share links.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.
+- `frontend/public/fx/`: the taste kit's grain-gradient shader (copied as plain files), the hero's moving ground.
 - `frontend/public/brand-icons/`: real brand and coin logos (fetched with the taste skill's icons.mjs, credits in its JSON).
 - `frontend/test/`: Vitest tests of the pure converters.
 - `deploy/`: Docker Compose + Caddy for the backend on a VPS.

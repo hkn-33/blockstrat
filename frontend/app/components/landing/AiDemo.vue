@@ -3,7 +3,8 @@ import type { DemoMarket, DemoStopLoss, DemoStrategy } from '~/composables/useLa
 
 // A working conversation with the assistant. The first request plays by itself when the section comes
 // into view; after every answer three follow-ups are offered, and each one changes the strategy, the
-// blocks, the JSON and the real backtest result. Both panels keep a fixed height; the chat scrolls.
+// blocks, the JSON and the real backtest result. One fixed-height card with two tabs: the chat, and the
+// JSON the engine runs. The chat follows its newest message by itself and never takes the page's scroll.
 interface StrategyState {
   strategy: DemoStrategy
   market: DemoMarket
@@ -36,8 +37,11 @@ const messages = ref<Message[]>([])
 const typed = ref('')
 const isBusy = ref(false)
 const current = ref<StrategyState>(FIRST_STATE)
-const linesShown = ref(0)
+// The JSON panel opens on the first strategy, so it is never empty before the conversation starts.
+const linesShown = ref(strategyJsonLines(FIRST_STATE.strategy, FIRST_STATE.market, FIRST_STATE.stopLoss).length)
 const hasStarted = ref(false)
+const tab = ref<'chat' | 'json'>('chat')
+const jsonIsNew = ref(false)
 const root = ref<HTMLDivElement | null>(null)
 const body = ref<HTMLDivElement | null>(null)
 let nextId = 1
@@ -45,6 +49,8 @@ let timers: ReturnType<typeof setTimeout>[] = []
 let observer: IntersectionObserver | undefined
 
 const jsonLines = computed(() => strategyJsonLines(current.value.strategy, current.value.market, current.value.stopLoss))
+// The JSON tab only appears once the assistant has answered: it is something the answer made.
+const hasAnswer = computed(() => messages.value.some(message => message.state))
 const suggestions = computed<Suggestion[]>(() => (isBusy.value || !hasStarted.value ? [] : followUps(current.value)))
 
 function wait(ms: number): Promise<void> {
@@ -104,6 +110,7 @@ async function typeIntoComposer(text: string): Promise<void> {
 }
 
 async function streamJson(): Promise<void> {
+  if (tab.value === 'chat') jsonIsNew.value = true
   linesShown.value = 0
   for (let index = 1; index <= jsonLines.value.length; index++) {
     linesShown.value = index
@@ -122,6 +129,7 @@ async function ask(text: string, state: StrategyState, reply: string): Promise<v
     if (!prefersReducedMotion()) await wait(STEP_MS)
     messages.value[messages.value.length - 1]!.stepsDone = step
   }
+  const isNewStrategy = JSON.stringify(state) !== JSON.stringify(current.value)
   current.value = state
   messages.value[messages.value.length - 1]!.state = state
   await scrollToEnd()
@@ -129,7 +137,16 @@ async function ask(text: string, state: StrategyState, reply: string): Promise<v
   await wait(prefersReducedMotion() ? 0 : 600)
   await scrollToEnd()
   isBusy.value = false
-  await streamJson()
+  // The follow-ups take room under the conversation; keep the result line above them in view.
+  await scrollToEnd()
+  if (tab.value === 'chat') jsonIsNew.value = true
+  if (isNewStrategy) await streamJson()
+}
+
+function showTab(next: 'chat' | 'json'): void {
+  tab.value = next
+  if (next === 'json') jsonIsNew.value = false
+  else scrollToEnd()
 }
 
 function choose(suggestion: Suggestion): void {
@@ -146,8 +163,10 @@ function restart(): void {
   timers.forEach(clearTimeout)
   timers = []
   messages.value = []
+  tab.value = 'chat'
+  jsonIsNew.value = false
   current.value = FIRST_STATE
-  linesShown.value = 0
+  linesShown.value = jsonLines.value.length
   typed.value = ''
   isBusy.value = false
   start()
@@ -157,7 +176,7 @@ onMounted(() => {
   observer = new IntersectionObserver((entries) => {
     if (hasStarted.value || !entries.some(entry => entry.isIntersecting)) return
     start()
-  }, { threshold: 0.4 })
+  }, { threshold: 0.15 })
   observer.observe(root.value!)
 })
 
@@ -168,17 +187,26 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-    <div class="chat min-w-0">
-      <div class="chat-head">
-        <img src="/brand-icons/gemini.svg" alt="" class="h-6 w-6">
-        <span class="font-bold">Strategy assistant</span>
-        <button type="button" class="replay" :disabled="isBusy || !hasStarted" @click="restart">
-          <UiIcon name="refresh-cw" /> Start over
+  <div ref="root" class="card">
+    <div class="card-head">
+      <div class="tabs" role="tablist" aria-label="Assistant views">
+        <button type="button" role="tab" class="tab" :class="{ 'is-on': tab === 'chat' }" :aria-selected="tab === 'chat'" @click="showTab('chat')">
+          <img src="/brand-icons/gemini.svg" alt="" class="h-5 w-5"> Assistant
         </button>
+        <Transition name="tab-in">
+          <button v-if="hasAnswer" type="button" role="tab" class="tab" :class="{ 'is-on': tab === 'json' }" :aria-selected="tab === 'json'" @click="showTab('json')">
+            <UiIcon name="file-json" /> strategy.json
+            <span v-if="jsonIsNew" class="tab-new">New</span>
+          </button>
+        </Transition>
       </div>
+      <button type="button" class="replay" :disabled="isBusy || !hasStarted" @click="restart">
+        <UiIcon name="refresh-cw" /> <span class="replay-label">Start over</span>
+      </button>
+    </div>
 
-      <div ref="body" class="chat-body" data-lenis-prevent aria-live="polite">
+    <div v-show="tab === 'chat'" class="chat" role="tabpanel">
+      <div ref="body" class="chat-body" aria-live="polite">
         <p v-if="!messages.length" class="hint">
           Describe a strategy the way you would text a friend
         </p>
@@ -200,15 +228,17 @@ onBeforeUnmount(() => {
               <p class="answer-text">
                 {{ message.text }}
               </p>
-              <LandingRuleBuilder
-                :market="message.state.market"
-                timeframe="4 hours"
-                :entry="demoRules(message.state.strategy, message.state.stopLoss).entry"
-                :exit="demoRules(message.state.strategy, message.state.stopLoss).exit"
-                theme="dark"
-                entrance
-                class="answer-rules"
-              />
+              <div class="answer-rules">
+                <LandingRuleBuilder
+                  :market="message.state.market"
+                  timeframe="4 hours"
+                  :entry="demoRules(message.state.strategy, message.state.stopLoss).entry"
+                  :exit="demoRules(message.state.strategy, message.state.stopLoss).exit"
+                  theme="auto"
+                  entrance
+                  flush
+                />
+              </div>
               <p class="answer-result">
                 {{ resultLine(message.state) }}
               </p>
@@ -218,8 +248,10 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="suggestions" :class="{ 'is-hidden': !suggestions.length }">
+        <span class="suggestions-label">Ask next</span>
         <button v-for="suggestion in suggestions" :key="suggestion.label" type="button" class="suggestion" @click="choose(suggestion)">
           {{ suggestion.label }}
+          <UiIcon name="arrow-up" class="suggestion-icon" />
         </button>
       </div>
 
@@ -229,11 +261,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div class="code min-w-0" role="img" aria-label="The current strategy as the JSON the engine runs">
-      <p class="code-head">
-        <UiIcon name="file-json" /> strategy.json
-        <span class="ml-auto">{{ linesShown === jsonLines.length ? 'Valid' : hasStarted ? 'Updating' : '' }}</span>
-      </p>
+    <div v-show="tab === 'json'" class="code" role="tabpanel" aria-label="The current strategy as the JSON the engine runs">
       <div class="code-body">
         <template v-for="(line, index) in jsonLines" :key="`${index}-${line}`">
           <!-- eslint-disable-next-line vue/no-v-html -->
@@ -242,30 +270,82 @@ onBeforeUnmount(() => {
         </template>
       </div>
       <p class="code-foot">
-        <UiIcon name="shield-check" /> Checked against one schema, and the model never writes code that runs
+        <UiIcon name="shield-check" /> {{ linesShown === jsonLines.length ? 'Valid against the one schema the engine reads' : 'Updating' }}
       </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.chat {
+.card {
   display: flex;
   height: 42rem;
   flex-direction: column;
   overflow: hidden;
   border-radius: 28px;
-  background: #0b2125;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  background: var(--panel);
+  color: var(--panel-ink);
+  box-shadow: var(--panel-shadow);
 }
 
-.chat-head {
+.card-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  border-bottom: 1px solid rgb(255 255 255 / 0.08);
-  padding: 0.9rem 1.25rem;
-  font-size: 15px;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--panel-line);
+  padding: 0.6rem 0.75rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--panel-fill);
+  padding: 3px;
+}
+
+.tab {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  border-radius: 9px;
+  padding: 0.45rem 0.8rem;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--panel-soft);
+  transition: background-color 160ms, color 160ms;
+}
+
+.tab:hover {
+  color: var(--panel-ink);
+}
+
+.tab.is-on {
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.tab-new {
+  border-radius: 6px;
+  background: var(--color-lime);
+  padding: 0.05rem 0.4rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.chat {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
 }
 
 .replay {
@@ -277,13 +357,24 @@ onBeforeUnmount(() => {
   border-radius: 7px;
   padding: 0.3rem 0.6rem;
   font-size: 13px;
-  color: rgb(255 255 255 / 0.75);
+  color: var(--panel-soft);
   transition: background-color 160ms, color 160ms;
 }
 
+@media (max-width: 480px) {
+  .replay-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .replay:hover:not(:disabled) {
-  background: rgb(255 255 255 / 0.08);
-  color: #ffffff;
+  background: var(--panel-fill);
+  color: var(--panel-ink);
 }
 
 .replay:disabled {
@@ -291,18 +382,16 @@ onBeforeUnmount(() => {
   opacity: 0.4;
 }
 
-/* The conversation scrolls inside its panel and starts at the bottom, as in a messaging app. */
+/* The conversation starts at the bottom, as in a messaging app, and follows its newest message by
+   itself. It never scrolls under the wheel, so the page always does. */
 .chat-body {
   display: flex;
   min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 0.9rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: 1.25rem;
-  scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.15) transparent;
 }
 
 .chat-body > :first-child {
@@ -312,14 +401,14 @@ onBeforeUnmount(() => {
 .hint {
   font-size: 15px;
   text-align: center;
-  color: rgb(255 255 255 / 0.7);
+  color: var(--panel-soft);
 }
 
 .bubble {
   align-self: flex-end;
   max-width: 30rem;
   border-radius: 20px 20px 6px 20px;
-  background: rgb(255 255 255 / 0.14);
+  background: var(--panel-fill-strong);
   padding: 0.8rem 1.05rem;
   font-size: 15px;
   line-height: 1.5;
@@ -344,15 +433,17 @@ onBeforeUnmount(() => {
 }
 
 .answer-rules {
-  --rules-size: 12.5px;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 1px var(--panel-line);
 }
 
 .answer-result {
   border-radius: 10px;
-  background: rgb(200 242 90 / 0.1);
+  background: var(--result-bg);
   padding: 0.6rem 0.8rem;
   font-size: 14px;
-  color: #e7f9b8;
+  color: var(--result-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -360,7 +451,7 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 0.4rem;
   font-size: 14px;
-  color: rgb(255 255 255 / 0.65);
+  color: var(--panel-soft);
 }
 
 .steps li {
@@ -370,7 +461,7 @@ onBeforeUnmount(() => {
 }
 
 .steps li.is-done {
-  color: rgb(255 255 255 / 0.9);
+  color: var(--panel-ink);
 }
 
 .tick {
@@ -378,14 +469,14 @@ onBeforeUnmount(() => {
   width: 1.15rem;
   height: 1.15rem;
   place-items: center;
-  color: var(--color-lime);
+  color: var(--gain-ink);
 }
 
 .spinner {
   width: 0.85rem;
   height: 0.85rem;
-  border: 2px solid rgb(255 255 255 / 0.2);
-  border-top-color: var(--color-lime);
+  border: 2px solid var(--panel-line);
+  border-top-color: var(--gain-ink);
   border-radius: 999px;
   animation: spin 700ms linear infinite;
 }
@@ -399,7 +490,10 @@ onBeforeUnmount(() => {
 .suggestions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
+  /* One row of follow-ups is always reserved, so the conversation does not jump when they appear. */
+  min-height: calc(1.9rem + 0.75rem);
   padding: 0 1rem 0.75rem;
   transition: opacity 200ms;
 }
@@ -409,20 +503,40 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+.suggestions-label {
+  font-size: 13px;
+  color: var(--panel-soft);
+}
+
+/* Follow-ups look like what they do: a message you send, with the composer's own send arrow. */
 .suggestion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   cursor: pointer;
   border-radius: 10px;
-  background: rgb(255 255 255 / 0.06);
-  padding: 0.45rem 0.75rem;
+  background: var(--panel-fill);
+  padding: 0.45rem 0.5rem 0.45rem 0.8rem;
   font-size: 13px;
   font-weight: 600;
-  color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
-  transition: background-color 160ms, transform 120ms;
+  color: var(--panel-ink);
+  box-shadow: inset 0 0 0 1px var(--panel-line);
+  transition: background-color 160ms, box-shadow 160ms, transform 120ms;
+}
+
+.suggestion-icon {
+  display: grid;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 6px;
+  background: var(--color-lime);
+  padding: 0.2rem;
+  color: var(--color-ink);
 }
 
 .suggestion:hover {
-  background: rgb(200 242 90 / 0.14);
+  background: var(--panel-fill-strong);
+  box-shadow: inset 0 0 0 1px var(--gain-ink);
 }
 
 .suggestion:active {
@@ -431,7 +545,7 @@ onBeforeUnmount(() => {
 
 .suggestion:focus-visible,
 .replay:focus-visible {
-  outline: 2px solid var(--color-lime);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -441,9 +555,9 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   margin: 0 1rem 1rem;
   border-radius: 16px;
-  background: rgb(255 255 255 / 0.08);
+  background: var(--panel-fill);
   padding: 0.7rem 0.7rem 0.7rem 1rem;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--panel-line);
 }
 
 .composer-text {
@@ -456,7 +570,7 @@ onBeforeUnmount(() => {
 .composer-text.is-empty {
   display: flex;
   align-items: center;
-  color: rgb(255 255 255 / 0.65);
+  color: var(--panel-soft);
 }
 
 .caret {
@@ -482,8 +596,8 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   place-items: center;
   border-radius: 10px;
-  background: rgb(255 255 255 / 0.12);
-  color: rgb(255 255 255 / 0.5);
+  background: var(--panel-fill-strong);
+  color: var(--panel-soft);
   transition: background-color 200ms, color 200ms;
 }
 
@@ -494,31 +608,23 @@ onBeforeUnmount(() => {
 
 .code {
   display: flex;
-  height: 42rem;
+  min-height: 0;
+  flex: 1;
   flex-direction: column;
-  overflow: hidden;
-  border-radius: 28px;
-  background: #061e23;
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  background: var(--panel-2);
 }
 
-.code-head,
 .code-foot {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.9rem 1.25rem;
   font-size: 13px;
-  color: #a5c2c6;
-}
-
-.code-head {
-  border-bottom: 1px solid rgb(255 255 255 / 0.08);
-  font-family: var(--font-mono);
+  color: var(--panel-soft);
 }
 
 .code-foot {
-  border-top: 1px solid rgb(255 255 255 / 0.08);
+  border-top: 1px solid var(--panel-line);
 }
 
 .code-body {
@@ -531,7 +637,7 @@ onBeforeUnmount(() => {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.4;
-  color: #d4e6e8;
+  color: var(--panel-ink);
 }
 
 .line {
@@ -553,13 +659,13 @@ onBeforeUnmount(() => {
   height: 0.7rem;
   margin-block: 0.18rem;
   border-radius: 4px;
-  background: rgb(255 255 255 / 0.06);
+  background: var(--panel-fill);
 }
 
-.code-body :deep(.k) { color: #7fe3d6; }
-.code-body :deep(.s) { color: var(--color-lime); }
-.code-body :deep(.n) { color: #b8d0ff; }
-.code-body :deep(.p) { color: #7f9da2; }
+.code-body :deep(.k) { color: var(--code-key); }
+.code-body :deep(.s) { color: var(--code-string); }
+.code-body :deep(.n) { color: var(--code-number); }
+.code-body :deep(.p) { color: var(--code-punctuation); }
 
 @media (prefers-reduced-motion: reduce) {
   .bubble,
@@ -571,3 +677,19 @@ onBeforeUnmount(() => {
   }
 }
 </style>
+
+.tab-in-enter-active {
+  transition: opacity 260ms cubic-bezier(0.22, 1, 0.36, 1), transform 260ms cubic-bezier(0.22, 1, 0.36, 1), filter 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.tab-in-enter-from {
+  opacity: 0;
+  transform: translateX(-8px) scale(0.96);
+  filter: blur(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-in-enter-active {
+    transition: none;
+  }
+}

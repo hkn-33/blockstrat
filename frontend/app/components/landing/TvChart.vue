@@ -2,7 +2,6 @@
 import {
   BaselineSeries,
   CandlestickSeries,
-  ColorType,
   CrosshairMode,
   HistogramSeries,
   LineSeries,
@@ -21,14 +20,16 @@ import type { ChartTheme } from '~/composables/useChartTheme'
 import type { DemoMarket, DemoRun } from '~/composables/useLandingDemo'
 
 // A chart in the manner of TradingView's strategy view: daily candles with volume, every trade marked
-// on them, and the account balance in a pane underneath. It draws from left to right when first seen.
+// on them, and the account balance in a pane underneath. It draws from left to right when first seen,
+// or, given `progress` (0 to 1), shows just that share of the period so the scroll can draw it.
 const props = withDefaults(defineProps<{
   market: DemoMarket
   run: DemoRun
   delayMs?: number
   height?: number
   theme?: ChartTheme | 'auto'
-}>(), { delayMs: 0, height: 420, theme: 'dark' })
+  progress?: number
+}>(), { delayMs: 0, height: 420, theme: 'dark', progress: undefined })
 
 const DRAW_MS = 1100
 
@@ -46,6 +47,8 @@ let equitySeries: ISeriesApi<'Baseline'> | undefined
 let holdingSeries: ISeriesApi<'Line'> | undefined
 let markers: ISeriesMarkersPluginApi<Time> | undefined
 let frame = 0
+let showUpTo: ((count: number) => void) | undefined
+let candleCount = 0
 let delayTimer: ReturnType<typeof setTimeout> | undefined
 let observer: IntersectionObserver | undefined
 let hasBeenSeen = false
@@ -113,7 +116,8 @@ function draw(): void {
   equitySeries.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: balanceRange }) })
   holdingSeries.applyOptions({ autoscaleInfoProvider: () => ({ priceRange: balanceRange }) })
 
-  const showUpTo = (count: number) => {
+  candleCount = candleData.length
+  showUpTo = (count: number) => {
     candleSeries!.setData(candleData.slice(0, count))
     volumeSeries!.setData(volumeData.slice(0, count))
     equitySeries!.setData(equityData.slice(0, count))
@@ -124,6 +128,10 @@ function draw(): void {
     showLegendAt(count - 1)
   }
 
+  if (props.progress !== undefined) {
+    showProgress()
+    return
+  }
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     showUpTo(candleData.length)
     return
@@ -132,10 +140,15 @@ function draw(): void {
   const step = (now: number) => {
     const progress = Math.min(1, (now - startedAt) / DRAW_MS)
     const eased = 1 - (1 - progress) ** 2
-    showUpTo(Math.max(2, Math.ceil(eased * candleData.length)))
+    showUpTo!(Math.max(2, Math.ceil(eased * candleData.length)))
     if (progress < 1) frame = requestAnimationFrame(step)
   }
   frame = requestAnimationFrame(step)
+}
+
+function showProgress(): void {
+  if (!showUpTo || props.progress === undefined) return
+  showUpTo(Math.max(2, Math.ceil(props.progress * candleCount)))
 }
 
 function onCrosshairMove(param: MouseEventParams<Time>): void {
@@ -147,20 +160,12 @@ function onCrosshairMove(param: MouseEventParams<Time>): void {
 }
 
 onMounted(() => {
+  const base = baseChartOptions()
   chart = createChart(container.value!, {
-    autoSize: true,
-    layout: {
-      background: { type: ColorType.Solid, color: 'transparent' },
-      fontFamily: 'Satoshi, ui-sans-serif, system-ui, sans-serif',
-      fontSize: 11,
-      attributionLogo: false,
-    },
+    ...base,
     crosshair: { mode: CrosshairMode.Normal },
-    rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false, rightOffset: 2 },
-    localization: { locale: 'en-US', priceFormatter: price },
-    handleScroll: false,
-    handleScale: false,
+    timeScale: { ...base.timeScale, rightOffset: 2 },
+    localization: { ...base.localization, priceFormatter: price },
   })
 
   candleSeries = chart.addSeries(CandlestickSeries, { borderVisible: false })
@@ -182,6 +187,11 @@ onMounted(() => {
   chart.subscribeCrosshairMove(onCrosshairMove)
   showLegendAt(candles.value.length - 1)
 
+  if (props.progress !== undefined) {
+    hasBeenSeen = true
+    draw()
+    return
+  }
   observer = new IntersectionObserver((entries) => {
     if (hasBeenSeen || !entries.some(entry => entry.isIntersecting)) return
     hasBeenSeen = true
@@ -192,6 +202,11 @@ onMounted(() => {
 
 watch(() => [props.run, props.market], () => {
   if (hasBeenSeen) draw()
+})
+
+watch(() => props.progress, () => {
+  cancelAnimationFrame(frame)
+  frame = requestAnimationFrame(showProgress)
 })
 
 watch(resolvedTheme, () => {
@@ -208,19 +223,14 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="tv" :class="`tv--${resolvedTheme}`">
-    <div class="tv-bar">
-      <img :src="`/brand-icons/${coin.icon}.svg`" alt="" class="coin">
-      <span class="tv-name">{{ coin.label }}</span>
-      <span class="tv-dim">· 1D candles · 4h strategy · Binance</span>
-      <span class="tv-ohlc">
-        <span>O <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.open) }}</b></span>
-        <span>H <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.high) }}</b></span>
-        <span>L <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.low) }}</b></span>
-        <span>C <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.close) }}</b></span>
-        <b :class="legend.change >= 0 ? 'up' : 'down'">{{ formatSignedPercent(legend.change, 2) }}</b>
-      </span>
-    </div>
+  <div class="tv" :class="`tv--${theme}`">
+    <LandingChartBar :icon="coin.icon" :name="coin.label" detail="1D candles, 4h strategy, Binance prices">
+      <span>O <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.open) }}</b></span>
+      <span>H <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.high) }}</b></span>
+      <span>L <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.low) }}</b></span>
+      <span>C <b :class="legend.change >= 0 ? 'up' : 'down'">{{ price(legend.close) }}</b></span>
+      <b :class="legend.change >= 0 ? 'up' : 'down'">{{ formatSignedPercent(legend.change, 2) }}</b>
+    </LandingChartBar>
     <div ref="container" class="tv-chart" :style="{ height: `${height}px` }" role="img" :aria-label="`Daily ${coin.label} candles with every trade of the strategy marked, and the account balance underneath`" />
   </div>
 </template>
@@ -235,45 +245,19 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.tv--light {
+.tv--light,
+.tv--auto {
   --tv-text: #56676f;
   --tv-strong: #0d1b24;
   --tv-up: var(--color-gain);
   --tv-down: var(--color-loss);
 }
 
-.tv-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.6rem;
-  padding: 0.8rem 1rem;
-  font-size: 13px;
-  color: var(--tv-text);
-}
-
-.tv-name {
-  font-weight: 700;
-  color: var(--tv-strong);
-}
-
-.coin {
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
-}
-
-.tv-ohlc {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-left: auto;
-}
-
-.tv-ohlc b {
-  font-weight: 600;
+:global(.dark .tv--auto) {
+  --tv-text: rgb(214 226 230 / 0.75);
+  --tv-strong: #ffffff;
+  --tv-up: var(--color-gain-bright);
+  --tv-down: var(--color-loss-bright);
 }
 
 .up {
@@ -286,11 +270,5 @@ onBeforeUnmount(() => {
 
 .tv-chart {
   width: 100%;
-}
-
-@media (max-width: 640px) {
-  .tv-ohlc {
-    display: none;
-  }
 }
 </style>
