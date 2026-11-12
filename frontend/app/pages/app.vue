@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExecutionPreset, InstrumentInfo, StrategyDraft } from '~/types/api'
 import type { Item, LimitKind } from '~/utils/strategyDocument'
+import type { PanelWidths } from '~/utils/strategyFiles'
 
 // The builder in three columns: the block library on the left, the strategy as cards on a canvas in the
 // middle, and the result with the assistant on the right. A first visit starts empty and guided.
@@ -24,6 +25,8 @@ const presets = ref<ExecutionPreset[]>([])
 const notice = ref<string | null>(null)
 const rightTab = ref<'result' | 'assistant' | 'json'>('result')
 const mobileTab = ref<'library' | 'strategy' | 'result'>('strategy')
+// The middle column is the canvas of blocks, or a chart to mark trades on and get matching strategies.
+const centreView = ref<'blocks' | 'chart'>('blocks')
 // The canvas waits for the saved strategy and name, so a returning user never sees the welcome flash.
 const isReady = ref(false)
 
@@ -38,7 +41,7 @@ watch(draft, (current) => {
   if (replay.isRunning.value) return
   saveCurrentStrategy(current)
   if (missing.value.length || problemCount.value) backtest.cancel()
-  else backtest.schedulePreview(current)
+  else backtest.schedule(current)
 })
 
 watch(name, saveCurrentName)
@@ -52,6 +55,9 @@ function open(strategy: StrategyDraft, strategyName: string): void {
 async function build(strategy: StrategyDraft, strategyName: string): Promise<void> {
   name.value = strategyName
   mobileTab.value = 'strategy'
+  centreView.value = 'blocks'
+  // The canvas was hidden while the chart was up; it needs a frame to measure itself again.
+  await nextTick()
   await replay.play(documentFromDraft(strategy))
   rightTab.value = 'result'
 }
@@ -94,13 +100,65 @@ function addRisk(kind: LimitKind, percent: number): void {
   mobileTab.value = 'strategy'
 }
 
-// Both run every chosen market; markets whose result is already current are not sent again.
-function runFull(): void {
-  backtest.run(draft.value, 'full')
+// Runs every chosen market again; markets whose result is already current are not sent again.
+function retry(): void {
+  backtest.run(draft.value)
 }
 
-function retry(): void {
-  backtest.run(draft.value, 'preview')
+// ---------- Column widths ----------
+// The side columns can be dragged wider or narrower; a double click on a divider gives its column back
+// its default width. The canvas always keeps room for one card.
+const MINIMUM_SIDE_WIDTH = 240
+const MINIMUM_CANVAS_WIDTH = 380
+const KEY_STEP = 24
+type SidePanel = 'library' | 'result'
+
+const panelWidths = ref<PanelWidths>({ library: null, result: null })
+const workspace = ref<HTMLElement | null>(null)
+const workspaceStyle = computed(() => ({
+  '--library-width': panelWidths.value.library === null ? undefined : `${panelWidths.value.library}px`,
+  '--result-width': panelWidths.value.result === null ? undefined : `${panelWidths.value.result}px`,
+}))
+
+function columnWidth(panel: SidePanel): number {
+  return workspace.value?.querySelector(`.column--${panel}`)?.getBoundingClientRect().width ?? 0
+}
+
+function setPanelWidth(panel: SidePanel, width: number): void {
+  const other = columnWidth(panel === 'library' ? 'result' : 'library')
+  const widest = (workspace.value?.clientWidth ?? window.innerWidth) - other - MINIMUM_CANVAS_WIDTH
+  panelWidths.value = { ...panelWidths.value, [panel]: Math.round(Math.max(MINIMUM_SIDE_WIDTH, Math.min(width, widest))) }
+  savePanelWidths(panelWidths.value)
+}
+
+function resetPanelWidth(panel: SidePanel): void {
+  panelWidths.value = { ...panelWidths.value, [panel]: null }
+  savePanelWidths(panelWidths.value)
+}
+
+function startResize(panel: SidePanel, event: PointerEvent): void {
+  const divider = event.currentTarget as HTMLElement
+  const startX = event.clientX
+  const startWidth = columnWidth(panel)
+  // The library grows to the right, the result column to the left.
+  const direction = panel === 'library' ? 1 : -1
+  divider.setPointerCapture(event.pointerId)
+  const onMove = (move: PointerEvent): void => setPanelWidth(panel, startWidth + direction * (move.clientX - startX))
+  const onEnd = (): void => {
+    divider.removeEventListener('pointermove', onMove)
+    divider.removeEventListener('pointerup', onEnd)
+    divider.removeEventListener('pointercancel', onEnd)
+  }
+  divider.addEventListener('pointermove', onMove)
+  divider.addEventListener('pointerup', onEnd)
+  divider.addEventListener('pointercancel', onEnd)
+}
+
+function resizeByKey(panel: SidePanel, event: KeyboardEvent): void {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+  event.preventDefault()
+  const grows = (event.key === 'ArrowRight') === (panel === 'library')
+  setPanelWidth(panel, columnWidth(panel) + (grows ? KEY_STEP : -KEY_STEP))
 }
 
 function startingPoint(): { strategy: StrategyDraft | null, name: string } {
@@ -138,12 +196,13 @@ function onKeydown(event: KeyboardEvent): void {
 
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
+  panelWidths.value = loadPanelWidths()
   const start = startingPoint()
   // The first document is not an edit, so it gets no undo step.
   if (start.strategy) editor.document.value = documentFromDraft(start.strategy)
   name.value = start.name
   isReady.value = true
-  if (start.strategy) backtest.schedulePreview(draft.value)
+  if (start.strategy) backtest.schedule(draft.value)
   try {
     const [instrumentList, executionPresets] = await Promise.all([api.instruments(), api.executionPresets()])
     instruments.value = instrumentList.instruments
@@ -174,14 +233,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </button>
     </div>
 
-    <main class="workspace" :data-tab="mobileTab">
+    <main ref="workspace" class="workspace" :data-tab="mobileTab" :style="workspaceStyle">
       <aside class="column column--library" aria-label="Blocks">
         <BuilderLibrary :instruments="instruments" :chosen="editor.document.value.instruments" :step="step" :sides="sideChoices" :side-id="targetSide.id" @update:side-id="chosenSideId = $event" @add-condition="addCondition" @toggle-market="toggleMarket" @add-risk="addRisk" />
       </aside>
 
+      <div class="divider divider--library" role="separator" aria-orientation="vertical" aria-label="Width of the blocks column: drag, or use the arrow keys" tabindex="0" @pointerdown.prevent="startResize('library', $event)" @dblclick="resetPanelWidth('library')" @keydown="resizeByKey('library', $event)" />
+
       <section class="column column--canvas" aria-label="Strategy">
-        <BuilderCanvas v-if="isReady" ref="canvas" v-model:name="name" :instruments="instruments" @build="build" @show-json="rightTab = 'json'; mobileTab = 'result'" @use-example="useExample" @start-new="startNew" @describe="rightTab = 'assistant'; mobileTab = 'result'" @open="open" />
+        <div class="view-tabs" role="tablist" aria-label="How to build the strategy">
+          <button type="button" role="tab" :aria-selected="centreView === 'blocks'" :class="{ 'is-on': centreView === 'blocks' }" @click="centreView = 'blocks'">
+            <UiIcon name="layers" /> Build with blocks
+          </button>
+          <button type="button" role="tab" :aria-selected="centreView === 'chart'" :class="{ 'is-on': centreView === 'chart' }" @click="centreView = 'chart'">
+            <UiIcon name="chart-candlestick" /> Mark on a chart
+          </button>
+        </div>
+        <BuilderMarkView v-if="centreView === 'chart'" class="centre-view" :instruments="instruments" :instrument="editor.document.value.instruments[0] ?? null" :timeframe="editor.document.value.timeframe" @build="build" />
+        <BuilderCanvas v-if="isReady" v-show="centreView === 'blocks'" ref="canvas" class="centre-view" v-model:name="name" :instruments="instruments" @build="build" @show-json="rightTab = 'json'; mobileTab = 'result'" @use-example="useExample" @start-new="startNew" @describe="rightTab = 'assistant'; mobileTab = 'result'" @open="open" />
       </section>
+
+      <div class="divider divider--result" role="separator" aria-orientation="vertical" aria-label="Width of the result column: drag, or use the arrow keys" tabindex="0" @pointerdown.prevent="startResize('result', $event)" @dblclick="resetPanelWidth('result')" @keydown="resizeByKey('result', $event)" />
 
       <section class="column column--result" aria-label="Result and assistant">
         <div class="right-tabs" role="tablist" aria-label="Result, assistant and JSON">
@@ -205,7 +277,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               :checklist="checklist"
               :problem-count="problemCount"
               :commission-pct="editor.document.value.execution.commission_pct"
-              @run-full="runFull"
               @retry="retry"
             />
             <BuilderTestSettings :presets="presets" />
@@ -244,11 +315,99 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .workspace {
+  /* The side columns give way on a narrower screen, so the canvas keeps room for a card and its note;
+     a width the user dragged a column to replaces its default. */
+  --library-column: var(--library-width, clamp(18rem, 20vw, 21rem));
+  --result-column: var(--result-width, clamp(24rem, 28vw, 28rem));
+  position: relative;
   display: grid;
   min-height: 0;
   flex: 1;
-  /* The side columns give way on a narrower screen, so the canvas keeps room for a card and its note. */
-  grid-template-columns: clamp(18rem, 20vw, 21rem) minmax(0, 1fr) clamp(24rem, 28vw, 28rem);
+  grid-template-columns: var(--library-column) minmax(0, 1fr) var(--result-column);
+}
+
+/* A divider is a thin strip over the border between two columns, wide enough to grab. */
+.divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.divider--library {
+  left: calc(var(--library-column) - 5px);
+}
+
+.divider--result {
+  right: calc(var(--result-column) - 5px);
+}
+
+.divider::after {
+  position: absolute;
+  inset: 0 4px;
+  border-radius: 2px;
+  background: var(--accent-ink);
+  opacity: 0;
+  transition: opacity 140ms;
+  content: "";
+}
+
+.divider:hover::after,
+.divider:active::after,
+.divider:focus-visible::after {
+  opacity: 1;
+}
+
+.divider:focus-visible {
+  outline: none;
+}
+
+.column--canvas {
+  display: flex;
+  flex-direction: column;
+}
+
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  align-self: center;
+  margin: 0.5rem;
+  border-radius: 10px;
+  background: var(--panel-fill);
+  padding: 3px;
+}
+
+.view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 7px;
+  padding: 0.35rem 0.8rem;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--panel-soft);
+  transition: background-color 140ms, color 140ms;
+}
+
+.view-tabs button.is-on {
+  background: var(--panel);
+  color: var(--panel-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15), inset 0 0 0 1px var(--panel-line);
+}
+
+.view-tabs button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Either view takes the room under the tabs, whatever height it asks for on its own. */
+.column--canvas > .centre-view {
+  height: auto;
+  min-height: 0;
+  flex: 1;
 }
 
 .column {
@@ -355,6 +514,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   .column--library,
   .column--result {
     border: 0;
+  }
+
+  .divider {
+    display: none;
   }
 
   .workspace[data-tab="library"] .column:not(.column--library),

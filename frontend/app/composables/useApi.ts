@@ -2,11 +2,14 @@ import type {
   AiBuildFailed,
   AiBuildOk,
   AiMessage,
+  BarsResponse,
   ExecutionPreset,
   InstrumentsResponse,
   MissingResponse,
   ResultResponse,
   StrategyDraft,
+  SuggestRequest,
+  SuggestResponse,
 } from '~/types/api'
 
 export type BacktestMode = 'preview' | 'full'
@@ -25,6 +28,12 @@ export function useApi() {
     },
     executionPresets(): Promise<ExecutionPreset[]> {
       return $fetch<ExecutionPreset[]>('/api/execution-presets', { baseURL })
+    },
+    bars(instrument: string, timeframe: SuggestRequest['timeframe']): Promise<BarsResponse> {
+      return $fetch<BarsResponse>('/api/bars', { baseURL, query: { instrument, timeframe } })
+    },
+    suggestStrategies(instrument: string, timeframe: SuggestRequest['timeframe'], marks: SuggestRequest['marks']): Promise<SuggestResponse> {
+      return $fetch<SuggestResponse>('/api/suggest-strategies', { baseURL, method: 'POST', body: { instrument, timeframe, marks } })
     },
     buildStrategy(messages: AiMessage[], currentStrategy: StrategyDraft | null): Promise<AiBuildResponse> {
       return $fetch<AiBuildResponse>('/api/ai/build-strategy', {

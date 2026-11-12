@@ -212,7 +212,8 @@ function showGuidedCard(isInstant = false): void {
   if (!id) return
   // The note stands left of the card; on a narrow screen it sits above it and takes no room beside it.
   const isBeside = hintsOn.value && window.matchMedia('(min-width: 1100px)').matches
-  centreOn(id, isBeside ? -HINT_WIDTH / 2 : 0, isInstant)
+  const noteShift = hintSide(guidedSide.value.id) === 'left' || id === 'market' ? -HINT_WIDTH / 2 : HINT_WIDTH / 2
+  centreOn(id, isBeside ? noteShift : 0, isInstant)
 }
 
 function centreOn(nodeId: string, shift: number, isInstant: boolean): void {
@@ -233,6 +234,11 @@ function showTarget(target: string): void {
 }
 
 const canShowHints = computed(() => step.value === 'market' || step.value === 'entry' || step.value === 'exit')
+
+// A second lane's note stands to its right, clear of the first lane.
+function hintSide(sideId: string): 'left' | 'right' {
+  return sides.value.length === 2 && sides.value[1]!.id === sideId ? 'right' : 'left'
+}
 
 function isGuided(part: 'entry' | 'exit', sideId: string): boolean {
   return hintsOn.value && step.value === part && guidedSide.value.id === sideId
@@ -444,7 +450,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 
       <template #node-entry="{ data }">
         <!-- The side's badge pushes this card's drop area down, and the note follows it. -->
-        <BuilderCanvasCard v-if="sideById(data.sideId)" style="--guide-top: 4.75rem" :is-next="isGuided('entry', data.sideId)" hint="Now: when should it get in?" @hide-hints="hintsOn = false">
+        <BuilderCanvasCard v-if="sideById(data.sideId)" style="--guide-top: 4.75rem" :is-next="isGuided('entry', data.sideId)" hint="Now: when should it get in?" :hint-side="hintSide(data.sideId)" @hide-hints="hintsOn = false">
           <div class="lane-head">
             <span class="lane-badge" :class="`lane-badge--${sideById(data.sideId)!.direction}`">{{ sideById(data.sideId)!.direction === 'long' ? 'Long: profits when the price rises' : 'Short: profits when the price falls' }}</span>
             <button v-if="sides.length > 1" type="button" class="lane-remove nodrag" :aria-label="`Remove the ${sideById(data.sideId)!.direction} side`" @click="dropSide(data.sideId)">
@@ -458,7 +464,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
       </template>
 
       <template #node-exit="{ data }">
-        <BuilderCanvasCard v-if="sideById(data.sideId)" :is-next="isGuided('exit', data.sideId)" hint="Last: when should it get out?" @hide-hints="hintsOn = false">
+        <BuilderCanvasCard v-if="sideById(data.sideId)" :is-next="isGuided('exit', data.sideId)" hint="Last: when should it get out?" :hint-side="hintSide(data.sideId)" @hide-hints="hintsOn = false">
           <div class="rules">
             <BuilderGroup :group="sideById(data.sideId)!.exit" root="exit" :direction="sideById(data.sideId)!.direction">
               <template #after>

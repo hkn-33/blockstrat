@@ -325,6 +325,21 @@
       "title": "Bar",
       "type": "object"
     },
+    "BarsResponse": {
+      "properties": {
+        "bars": {
+          "items": {
+            "$ref": "#/$defs/Bar"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "bars"
+      ],
+      "title": "BarsResponse",
+      "type": "object"
+    },
     "BollingerOperand": {
       "additionalProperties": false,
       "properties": {
@@ -832,6 +847,27 @@
       "title": "MacdOperand",
       "type": "object"
     },
+    "Mark": {
+      "properties": {
+        "time": {
+          "description": "The marked candle's open time, UNIX seconds",
+          "type": "integer"
+        },
+        "side": {
+          "enum": [
+            "buy",
+            "sell"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "side"
+      ],
+      "title": "Mark",
+      "type": "object"
+    },
     "Metrics": {
       "properties": {
         "total_return_pct": {
@@ -979,6 +1015,75 @@
         "field"
       ],
       "title": "PriceOperand",
+      "type": "object"
+    },
+    "Proposal": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "strategy": {
+          "$ref": "#/$defs/StrategyDraft"
+        },
+        "buys_hit": {
+          "type": "integer"
+        },
+        "buys_marked": {
+          "type": "integer"
+        },
+        "extra_buys": {
+          "description": "Buy signals between the first and last mark with no buy mark near them",
+          "type": "integer"
+        },
+        "sells_hit": {
+          "type": "integer"
+        },
+        "sells_marked": {
+          "type": "integer"
+        },
+        "extra_sells": {
+          "type": "integer"
+        },
+        "entry_times": {
+          "description": "When the entry rule signals, within the candles /api/bars returns",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "exit_times": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "total_return_pct": {
+          "description": "On the whole history, not only the marked stretch",
+          "type": "number"
+        },
+        "buy_and_hold_return_pct": {
+          "type": "number"
+        },
+        "trade_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "strategy",
+        "buys_hit",
+        "buys_marked",
+        "extra_buys",
+        "sells_hit",
+        "sells_marked",
+        "extra_sells",
+        "entry_times",
+        "exit_times",
+        "total_return_pct",
+        "buy_and_hold_return_pct",
+        "trade_count"
+      ],
+      "title": "Proposal",
       "type": "object"
     },
     "RelativeVolumeOperand": {
@@ -1478,6 +1583,50 @@
       "title": "StrategyDraft",
       "type": "object"
     },
+    "SuggestRequest": {
+      "properties": {
+        "instrument": {
+          "type": "string"
+        },
+        "timeframe": {
+          "enum": [
+            "1d",
+            "4h",
+            "1h"
+          ],
+          "type": "string"
+        },
+        "marks": {
+          "items": {
+            "$ref": "#/$defs/Mark"
+          },
+          "maxItems": 400,
+          "type": "array"
+        }
+      },
+      "required": [
+        "instrument",
+        "timeframe",
+        "marks"
+      ],
+      "title": "SuggestRequest",
+      "type": "object"
+    },
+    "SuggestResponse": {
+      "properties": {
+        "proposals": {
+          "items": {
+            "$ref": "#/$defs/Proposal"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "proposals"
+      ],
+      "title": "SuggestResponse",
+      "type": "object"
+    },
     "TimePoint": {
       "properties": {
         "time": {
@@ -1586,6 +1735,15 @@
           "$ref": "#/$defs/AiBuildFailed"
         }
       ]
+    },
+    "bars_response": {
+      "$ref": "#/$defs/BarsResponse"
+    },
+    "suggest_request": {
+      "$ref": "#/$defs/SuggestRequest"
+    },
+    "suggest_response": {
+      "$ref": "#/$defs/SuggestResponse"
     }
   },
   "required": [
@@ -1596,7 +1754,10 @@
     "instruments_response",
     "execution_preset",
     "ai_build_request",
-    "ai_build_response"
+    "ai_build_response",
+    "bars_response",
+    "suggest_request",
+    "suggest_response"
   ],
   "title": "ApiTypes",
   "type": "object"

@@ -1,10 +1,13 @@
 import type { BacktestResult, StrategyDraft } from '~/types/api'
 import type { BacktestMode } from './useApi'
 
-const PREVIEW_DEBOUNCE_MS = 250
+const DEBOUNCE_MS = 250
+// Always the whole history: it takes well under a second, and a result on only the latest candles next to
+// a "full" one that says the opposite is worse than no preview at all.
+const HISTORY: BacktestMode = 'full'
 // A backtest often returns in under 100 ms. Showing "Calculating" for a moment makes it clear the
 // result is new, instead of numbers silently swapping.
-const MINIMUM_CALCULATING_MS = 450
+const MINIMUM_CALCULATING_MS = 700
 
 /** One market's backtest: its latest result stays while a newer one is on its way. */
 export interface MarketRun {
@@ -28,7 +31,7 @@ function strategyFor(strategy: StrategyDraft, symbol: string): StrategyDraft {
   return { ...strategy, instrument: symbol, extra_instruments: [] }
 }
 
-/** Runs the latest strategy on every chosen market, one request each: debounced previews, stale requests aborted. */
+/** Runs the latest strategy on every chosen market, one request each: debounced, stale requests aborted. */
 export function useBacktest() {
   const api = useApi()
   const runs = ref<MarketRuns>({})
@@ -60,7 +63,7 @@ export function useBacktest() {
     return resultKeys.get(symbol) === key && runs.value[symbol]?.error === null
   }
 
-  async function runMarket(strategy: StrategyDraft, mode: BacktestMode, key: string): Promise<void> {
+  async function runMarket(strategy: StrategyDraft, key: string): Promise<void> {
     const symbol = strategy.instrument!
     inFlight.get(symbol)?.controller.abort()
     const controller = new AbortController()
@@ -68,7 +71,7 @@ export function useBacktest() {
     patch(symbol, { isLoading: true })
     const startedAt = performance.now()
     try {
-      const response = await api.backtest(strategy, mode, controller.signal)
+      const response = await api.backtest(strategy, HISTORY, controller.signal)
       const serverMs = performance.now() - startedAt
       if (serverMs < MINIMUM_CALCULATING_MS) {
         await new Promise(resolve => setTimeout(resolve, MINIMUM_CALCULATING_MS - serverMs))
@@ -91,20 +94,20 @@ export function useBacktest() {
     }
   }
 
-  function schedulePreview(strategy: StrategyDraft): void {
+  function schedule(strategy: StrategyDraft): void {
     clearTimeout(timer)
-    timer = setTimeout(() => run(strategy, 'preview'), PREVIEW_DEBOUNCE_MS)
+    timer = setTimeout(() => run(strategy), DEBOUNCE_MS)
   }
 
-  async function run(strategy: StrategyDraft, mode: BacktestMode): Promise<void> {
+  async function run(strategy: StrategyDraft): Promise<void> {
     clearTimeout(timer)
     const symbols = instrumentsOf(strategy)
     dropMarketsOtherThan(symbols)
     const requests = symbols.map((symbol) => {
       const marketStrategy = strategyFor(strategy, symbol)
-      const key = `${mode}:${JSON.stringify(marketStrategy)}`
+      const key = JSON.stringify(marketStrategy)
       // Editing fires for every keystroke and drag; a market whose request has not changed needs no new run.
-      return isCurrent(symbol, key) ? undefined : runMarket(marketStrategy, mode, key)
+      return isCurrent(symbol, key) ? undefined : runMarket(marketStrategy, key)
     })
     await Promise.all(requests)
   }
@@ -118,5 +121,5 @@ export function useBacktest() {
     inFlight.clear()
   }
 
-  return { runs, isLoading, schedulePreview, run, cancel }
+  return { runs, isLoading, schedule, run, cancel }
 }

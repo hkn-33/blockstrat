@@ -28,13 +28,24 @@ export function guideSteps(document: StrategyDocument, name: string): GuideItem[
   return (Object.keys(LABELS) as Exclude<GuideStep, 'done'>[]).map(key => ({ key, label: LABELS[key], isDone: done[key] }))
 }
 
+/** One finished side is enough for a result, but the guide goes on until every side has a way in and a way
+ * out, so a side added later is not left half-built. */
 export function nextGuideStep(document: StrategyDocument, name: string): GuideStep {
-  return guideSteps(document, name).find(step => !step.isDone)?.key ?? 'done'
+  const [nameStep, marketStep] = guideSteps(document, name)
+  if (!nameStep!.isDone) return 'name'
+  if (!marketStep!.isDone) return 'market'
+  const unfinished = unfinishedSide(document)
+  if (!unfinished) return 'done'
+  return unfinished.entry === null ? 'entry' : 'exit'
 }
 
-/** The side the guide points at: the first one without an entry, then the first one with an entry but no way out. */
-export function guideSide(document: StrategyDocument): SideDocument {
+function unfinishedSide(document: StrategyDocument): { index: number, entry: unknown } | undefined {
   const drafts = documentToDraft(document).sides
   const index = drafts.findIndex(side => side.entry === null || side.exit === null)
-  return document.sides[Math.max(index, 0)]!
+  return index < 0 ? undefined : { index, entry: drafts[index]!.entry }
+}
+
+/** The side the guide points at: the first one that still lacks a way in or a way out. */
+export function guideSide(document: StrategyDocument): SideDocument {
+  return document.sides[unfinishedSide(document)?.index ?? 0]!
 }

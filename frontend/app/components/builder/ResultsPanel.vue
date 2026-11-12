@@ -19,7 +19,7 @@ const props = defineProps<{
   commissionPct: number
 }>()
 
-const emit = defineEmits<{ runFull: [], retry: [] }>()
+const emit = defineEmits<{ retry: [] }>()
 
 const chart = ref<InstanceType<typeof TvChart> | null>(null)
 
@@ -75,7 +75,7 @@ const period = computed(() => {
   if (!result.value) return ''
   const format = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
   const span = `${format.format(new Date(result.value.start_time * 1000))} to ${format.format(new Date(result.value.end_time * 1000))}`
-  return result.value.mode === 'full' ? `Full history, ${span}` : `Last ${result.value.bar_count.toLocaleString('en-US')} candles, ${span}`
+  return `Full history, ${span}, ${result.value.bar_count.toLocaleString('en-US')} candles`
 })
 
 function selectTrade(trade: Trade): void {
@@ -231,10 +231,16 @@ function tone(value: number): string {
       </div>
 
       <div v-else-if="!result" class="state">
+        <svg class="working-art" viewBox="0 0 320 150" fill="none" aria-hidden="true">
+          <path d="M8 118 L 46 96 L 78 108 L 118 70 L 150 84 L 192 46 L 226 62 L 268 28 L 312 40" class="working-line working-line--holding" pathLength="1" />
+          <path d="M8 124 L 46 112 L 78 112 L 118 86 L 150 86 L 192 58 L 226 58 L 268 34 L 312 22" class="working-line" pathLength="1" />
+        </svg>
         <p class="state-title">
-          Calculating the first result
+          Replaying every candle
         </p>
-        <div class="skeleton mt-4" />
+        <p class="mt-1 text-[var(--panel-soft)]">
+          Checking your rules on the whole history, with fees on every trade.
+        </p>
       </div>
 
       <div v-else class="market-result">
@@ -244,9 +250,6 @@ function tone(value: number): string {
             <span v-if="error" class="text-[var(--loss-ink)]">{{ error }}</span>
             <button type="button" class="action action--small" @click="chart?.showAll()">
               <UiIcon name="maximize-2" /> Show all
-            </button>
-            <button v-if="result.mode === 'preview'" type="button" class="action action--small" :disabled="isLoading" @click="emit('runFull')">
-              <UiIcon name="play" /> Run the full history
             </button>
           </span>
         </div>
@@ -259,6 +262,7 @@ function tone(value: number): string {
             :height="300"
             theme="auto"
             interactive
+            redraw-animated
           />
           <StrategyTester :summary="selected!.summary!" :coin="coin" />
           <div v-if="result.sides.length > 1 || result.both_signalled" class="side-split">
@@ -275,7 +279,7 @@ function tone(value: number): string {
           <BuilderTradeList class="trade-list" :trades="result.trades" @select="selectTrade" />
         </div>
         <p v-if="isSelectedLoading" class="loading" role="status">
-          Updating the result
+          <span class="loading-dot" /> Replaying every candle
         </p>
       </div>
     </template>
@@ -368,13 +372,47 @@ function tone(value: number): string {
   stroke-dasharray: 6 6;
 }
 
-.skeleton {
+/* While the first result is on its way two lines draw themselves over and over: the rules against holding. */
+.working-art {
   width: 20rem;
   max-width: 100%;
-  height: 14rem;
-  border-radius: 14px;
-  background: var(--panel-fill);
-  animation: breathe 1.4s ease-in-out infinite;
+  margin: 0 auto 1.25rem;
+}
+
+.working-line {
+  stroke: var(--accent-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  animation: draw-line 1.6s cubic-bezier(0.45, 0, 0.2, 1) infinite;
+}
+
+.working-line--holding {
+  stroke: var(--panel-soft);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  70%,
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.loading-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.35rem;
+  border-radius: 999px;
+  background: var(--color-lime);
+  animation: breathe 1s ease-in-out infinite;
 }
 
 @keyframes breathe {
@@ -671,7 +709,8 @@ function tone(value: number): string {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton,
+  .working-line,
+  .loading-dot,
   .spinner {
     animation: none;
   }

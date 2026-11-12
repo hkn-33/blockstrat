@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from blockstrat.ai import AiBuildRequest, AiBuildResponse
 from blockstrat.api import ExecutionPreset, InstrumentsResponse
 from blockstrat.schema import BacktestRequest, BacktestResponse, Strategy, StrategyDraft
+from blockstrat.suggest import BarsResponse, SuggestRequest, SuggestResponse
 
 
 class ApiTypes(BaseModel):
@@ -25,6 +26,9 @@ class ApiTypes(BaseModel):
     execution_preset: ExecutionPreset
     ai_build_request: AiBuildRequest
     ai_build_response: AiBuildResponse
+    bars_response: BarsResponse
+    suggest_request: SuggestRequest
+    suggest_response: SuggestResponse
 
 
 def _drop_property_titles(node: object) -> None:

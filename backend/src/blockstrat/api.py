@@ -34,6 +34,14 @@ from blockstrat.schema import (
     Strategy,
     Timeframe,
 )
+from blockstrat.suggest import (
+    BarsResponse,
+    SuggestRequest,
+    SuggestResponse,
+    TooFewMarksError,
+    latest_bars,
+    suggest_strategies,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -137,6 +145,23 @@ def create_app(
         except UnknownInstrumentError as error:
             raise HTTPException(status_code=422, detail=f"Unknown instrument: {error}") from error
         except NotEnoughDataError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    @app.get("/api/bars")
+    def bars(instrument: str, timeframe: Timeframe) -> BarsResponse:
+        try:
+            return BarsResponse(bars=latest_bars(market_data.bars(instrument, timeframe)))
+        except UnknownInstrumentError as error:
+            raise HTTPException(status_code=422, detail=f"Unknown instrument: {error}") from error
+
+    @app.post("/api/suggest-strategies")
+    def suggest(request: SuggestRequest) -> SuggestResponse:
+        try:
+            history = market_data.bars(request.instrument, request.timeframe)
+            return SuggestResponse(proposals=suggest_strategies(request, history))
+        except UnknownInstrumentError as error:
+            raise HTTPException(status_code=422, detail=f"Unknown instrument: {error}") from error
+        except (TooFewMarksError, NotEnoughDataError) as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
     @app.post("/api/ai/build-strategy")

@@ -134,6 +134,28 @@ export function saveHintsOn(isOn: boolean): void {
   }
 }
 
+const PANELS_KEY = 'blockstrat:panel-widths'
+
+/** The widths, in pixels, the user dragged the builder's side columns to; null keeps the default. */
+export interface PanelWidths {
+  library: number | null
+  result: number | null
+}
+
+export function loadPanelWidths(): PanelWidths {
+  try {
+    const stored = JSON.parse(readStorage(PANELS_KEY) ?? '{}') as Partial<PanelWidths>
+    return { library: typeof stored.library === 'number' ? stored.library : null, result: typeof stored.result === 'number' ? stored.result : null }
+  }
+  catch {
+    return { library: null, result: null }
+  }
+}
+
+export function savePanelWidths(widths: PanelWidths): void {
+  writeStorage(PANELS_KEY, JSON.stringify(widths))
+}
+
 export function loadLibrary(): StrategyLibrary {
   const text = readStorage(LIBRARY_KEY)
   if (!text) return {}

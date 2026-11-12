@@ -2,6 +2,8 @@
    editor: a head with the market, then "Buy when" and "Sell when" groups of condition tiles. */
 .rules {
   display: grid;
+  /* One column no wider than its card: a long tile wraps inside it instead of widening everything. */
+  grid-template-columns: minmax(0, 1fr);
   color: var(--panel-ink);
   font-size: var(--rules-size, 14px);
 }
