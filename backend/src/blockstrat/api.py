@@ -1,12 +1,15 @@
 """HTTP API used by the frontend."""
 
+import logging
 import os
 import threading
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, ValidationError
 
 from blockstrat.ai import (
@@ -31,6 +34,9 @@ from blockstrat.schema import (
     Strategy,
     Timeframe,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class InstrumentInfo(BaseModel):
@@ -75,6 +81,17 @@ def create_app(
 ) -> FastAPI:
     ai_rate_limiter = rate_limiter or RateLimiter(per_ip_per_hour=10, global_per_day=200)
     app = FastAPI(title="BlockStrat")
+
+    # Starlette answers an unhandled error outside every middleware, so the 500 would lose its CORS headers
+    # and the browser would report the server as unreachable. Answering it here keeps it inside CORS.
+    @app.middleware("http")
+    async def unexpected_error_as_500(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+        try:
+            return await call_next(request)
+        except Exception:
+            logger.exception("Unhandled error in %s %s", request.method, request.url.path)
+            return PlainTextResponse("Internal Server Error", status_code=500)
+
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware,
@@ -103,10 +120,18 @@ def create_app(
         if missing:
             return MissingResponse(missing=missing)
         try:
-            strategy = Strategy.model_validate(request.strategy.model_dump())
+            # An unfinished second side is left out rather than blocking the side that is ready.
+            draft = request.strategy.model_dump()
+            draft["sides"] = [side.model_dump() for side in request.strategy.complete_sides()]
+            strategy = Strategy.model_validate(draft)
         except ValidationError as error:
             raise HTTPException(status_code=422, detail=error.errors(include_url=False)) from error
+        known_symbols = {instrument.symbol for instrument in market_data.instruments()}
+        unknown_extras = [symbol for symbol in strategy.extra_instruments if symbol not in known_symbols]
+        if unknown_extras:
+            raise HTTPException(status_code=422, detail=f"Unknown instrument: {', '.join(unknown_extras)}")
         try:
+            # Only the main instrument is tested; the frontend sends one request per extra instrument (ADR 0004).
             bars = market_data.bars(strategy.instrument, strategy.timeframe)
             return ResultResponse(result=run_backtest(strategy, bars, request.mode))
         except UnknownInstrumentError as error:

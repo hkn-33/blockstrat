@@ -229,14 +229,12 @@ onBeforeUnmount(() => {
                 {{ message.text }}
               </p>
               <div class="answer-rules">
-                <LandingRuleBuilder
+                <LandingStrategyBoard
+                  compact
                   :market="message.state.market"
-                  timeframe="4 hours"
+                  :name="DEMO_STRATEGY_NAMES[message.state.strategy]"
                   :entry="demoRules(message.state.strategy, message.state.stopLoss).entry"
                   :exit="demoRules(message.state.strategy, message.state.stopLoss).exit"
-                  theme="auto"
-                  entrance
-                  flush
                 />
               </div>
               <p class="answer-result">

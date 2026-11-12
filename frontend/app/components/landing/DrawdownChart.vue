@@ -82,9 +82,9 @@ onBeforeUnmount(() => chart?.remove())
 
 <template>
   <div>
-    <LandingChartBar :icon="coin.icon" :name="coin.label" detail="Trend with filter, balance below its last high">
+    <ChartBar :icon="coin.icon" :name="coin.label" detail="Trend with filter, balance below its last high">
       <span>Max drawdown <b class="text-[var(--loss-ink)]">{{ maxDrawdown }}</b></span>
-    </LandingChartBar>
+    </ChartBar>
     <div ref="container" class="mx-3 h-[220px]" role="img" aria-label="How far the balance sat below its last high over time, with the deepest point marked" />
   </div>
 </template>

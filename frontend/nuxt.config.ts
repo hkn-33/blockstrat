@@ -13,7 +13,7 @@ export default defineNuxtConfig({
     // The builder needs Blockly and the charts, which only run in the browser.
     '/app': { ssr: false },
   },
-  css: ['~/assets/css/main.css'],
+  css: ['~/assets/css/main.css', '~/assets/css/rules.css'],
   vite: { plugins: [tailwindcss()] },
   app: {
     head: {

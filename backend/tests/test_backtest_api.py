@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from conftest import FIXTURE_SYMBOL, FakeMarketData, close_crosses, make_bars, strategy
+from blockstrat.api import create_app
 
 REQUIRED_PARTS = ["instrument", "timeframe", "entry", "exit"]
 # Bar 2 closes above 100, bar 4 closes back below it.
@@ -271,3 +272,112 @@ def test_buys_fractions_of_an_expensive_instrument(market_data: FakeMarketData, 
     [trade] = result["trades"]
     assert 0 < trade["size"] < 1
     assert trade["entry_price"] == pytest.approx(110_000 - 1)
+
+
+# ---------- Trailing stop ----------
+
+# Rises to a high of 131 at bar 5, then falls back far below the 109 entry.
+RISE_AND_FALL_CLOSES = [90.0, 95, 105, 110, 120, 130, 128, 125, 100, 95, 90]
+
+
+def test_trailing_stop_keeps_profit_a_fixed_stop_gives_back(market_data: FakeMarketData, client: TestClient) -> None:
+    # Entry fills at bar 3's open (109). The highest high is 131 (bar 5), so a 10% trailing stop sits at 117.9
+    # and bar 7 dips to 110. A fixed 10% stop sits at 98.1 and is only hit on the way down at bar 8.
+    market_data.frames[FIXTURE_SYMBOL] = make_bars(RISE_AND_FALL_CLOSES, lows={7: 110})
+
+    [trailing] = post_backtest(client, strategy(exit={"trailing_stop_pct": 10}))["result"]["trades"]
+    [fixed] = post_backtest(client, strategy(exit={"stop_loss_pct": 10}))["result"]["trades"]
+
+    assert trailing["exit_time"] == day(7)
+    assert trailing["exit_price"] == pytest.approx(131 * 0.9)
+    assert trailing["profit"] > 0
+    assert fixed["profit"] < 0
+
+
+def test_trailing_stop_follows_a_short_trade_down(market_data: FakeMarketData, client: TestClient) -> None:
+    # Short at bar 3's open (89). The lowest low is 68 (bar 5), so a 10% trailing stop sits at 74.8 and bar 7 reaches 90.
+    market_data.frames[FIXTURE_SYMBOL] = make_bars([110.0, 105, 95, 90, 80, 70, 72, 75, 100, 105, 110], highs={7: 90})
+    short = strategy(
+        entry={"direction": "short", "condition": close_crosses("crosses_below", 100)},
+        exit={"trailing_stop_pct": 10},
+    )
+
+    [trade] = post_backtest(client, short)["result"]["trades"]
+
+    assert trade["exit_time"] == day(7)
+    assert trade["exit_price"] == pytest.approx(68 * 1.1)
+    assert trade["profit"] > 0
+
+
+def test_tighter_fixed_stop_wins_over_a_wide_trailing_stop(market_data: FakeMarketData, client: TestClient) -> None:
+    market_data.frames[FIXTURE_SYMBOL] = make_bars([90, 95, 105, 110, 108, 112, 115], lows={4: 100})
+
+    [trade] = post_backtest(client, strategy(exit={"stop_loss_pct": 5, "trailing_stop_pct": 20}))["result"]["trades"]
+
+    assert trade["exit_time"] == day(4)
+    assert trade["exit_price"] == pytest.approx(109 * 0.95)
+
+
+def test_trailing_stop_alone_is_a_complete_exit(client: TestClient) -> None:
+    assert post_backtest(client, strategy(exit={"trailing_stop_pct": 5}))["status"] == "ok"
+
+
+@pytest.mark.parametrize("percent", [0, 100, -1])
+def test_rejects_trailing_stop_out_of_range(client: TestClient, percent: float) -> None:
+    response = client.post("/api/backtest", json={"strategy": strategy(exit={"trailing_stop_pct": percent})})
+
+    assert response.status_code == 422
+
+
+# ---------- Extra markets ----------
+
+
+def test_extra_instruments_do_not_change_the_backtest(market_data: FakeMarketData, client: TestClient) -> None:
+    market_data.frames["OTHERUSDT"] = make_bars([1.0] * len(CROSSING_CLOSES))
+
+    plain = post_backtest(client, strategy())["result"]
+    with_extras = post_backtest(client, strategy(extra_instruments=["OTHERUSDT"]))["result"]
+
+    assert with_extras == plain
+
+
+@pytest.mark.parametrize(
+    "extra_instruments",
+    [
+        ["NOPEUSDT"],
+        [FIXTURE_SYMBOL],
+        ["OTHERUSDT", "OTHERUSDT"],
+        [f"COIN{number}USDT" for number in range(10)],
+    ],
+)
+def test_rejects_invalid_extra_instruments(
+    market_data: FakeMarketData, client: TestClient, extra_instruments: list[str]
+) -> None:
+    for symbol in ["OTHERUSDT", *extra_instruments]:
+        if symbol != "NOPEUSDT":
+            market_data.frames.setdefault(symbol, make_bars(CROSSING_CLOSES))
+
+    response = client.post("/api/backtest", json={"strategy": strategy(extra_instruments=extra_instruments)})
+
+    assert response.status_code == 422
+
+
+# ---------- Server errors ----------
+
+
+class BrokenMarketData(FakeMarketData):
+    def bars(self, symbol: str, timeframe: str) -> Any:
+        raise ImportError("parquet engine missing")
+
+
+def test_unexpected_error_still_carries_cors_headers() -> None:
+    client = TestClient(create_app(BrokenMarketData()), raise_server_exceptions=False)
+
+    response = client.post(
+        "/api/backtest",
+        json={"strategy": strategy(instrument="ANYUSDT")},
+        headers={"Origin": "http://localhost:3000"},
+    )
+
+    assert response.status_code == 500
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"

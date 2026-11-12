@@ -18,7 +18,7 @@ Steps that need your own accounts are marked **(you)**.
    ```bash
    docker compose up -d --build
    ```
-6. Check it: `https://<API_DOMAIN>/api/instruments` returns the instrument list. The first start downloads the Binance history in the background (about a minute); the parquet cache lives in the `market-data` volume and survives restarts and rebuilds.
+6. Check it: `https://<API_DOMAIN>/api/instruments` returns the instrument list. The first start downloads the Binance history in the background (about a minute); the price cache lives in the `market-data` volume and survives restarts and rebuilds.
 
 Update after code changes:
 
