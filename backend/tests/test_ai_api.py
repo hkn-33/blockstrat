@@ -12,9 +12,11 @@ class FakeBuilder:
     def __init__(self, raw_reply: str) -> None:
         self.raw_reply = raw_reply
         self.received: list[AiMessage] = []
+        self.system_prompt = ""
 
     def reply(self, system_prompt: str, messages: list[AiMessage], response_schema: dict[str, object]) -> str:
         self.received = messages
+        self.system_prompt = system_prompt
         return self.raw_reply
 
 
@@ -112,6 +114,79 @@ def test_global_daily_cap() -> None:
 def test_rejects_too_long_messages() -> None:
     client = make_client(FakeBuilder("{}"))
 
-    response = client.post("/api/ai/build-strategy", json={"messages": [{"role": "user", "text": "x" * 5000}]})
+    response = client.post("/api/ai/build-strategy", json={"messages": [{"role": "user", "text": "x" * 7000}]})
 
     assert response.status_code == 422
+
+
+def test_a_two_sided_reply_comes_back_as_version_2() -> None:
+    above = {"kind": "compare", "operator": "crosses_above", "left": {"kind": "price", "field": "close"}, "right": {"kind": "sma", "period": 50}}
+    below = {**above, "operator": "crosses_below"}
+    two_sided = {
+        "schema_version": 2,
+        "instrument": FIXTURE_SYMBOL,
+        "timeframe": "1d",
+        "sides": [
+            {"direction": "long", "entry": above, "exit": {"rule": below}},
+            {"direction": "short", "entry": below, "exit": {"rule": above, "stop_loss_pct": 3}},
+        ],
+    }
+    client = make_client(FakeBuilder(json.dumps({"message": "Both ways.", "strategy": two_sided, "unsupported": []})))
+
+    response = ask(client, "Go long above the 50 SMA and short below it")
+
+    assert response["strategy"]["schema_version"] == 2
+    assert [side["direction"] for side in response["strategy"]["sides"]] == ["long", "short"]
+
+
+def test_a_version_1_reply_is_upgraded_to_one_side() -> None:
+    client = make_client(FakeBuilder(json.dumps({"message": "Done.", "strategy": strategy(), "unsupported": []})))
+
+    sides = ask(client)["strategy"]["sides"]
+
+    assert [side["direction"] for side in sides] == ["long"]
+
+
+def test_a_reply_with_breakouts_scores_trailing_stops_and_extra_markets_passes_through() -> None:
+    close = {"kind": "price", "field": "close"}
+    breakout = {"kind": "compare", "operator": "crosses_above", "left": close, "right": {"kind": "highest", "period": 20}}
+    busy = {"kind": "compare", "operator": "gt", "left": {"kind": "relative_volume", "period": 20}, "right": {"kind": "constant", "value": 2}}
+    oversold = {"kind": "compare", "operator": "lt", "left": {"kind": "stochastic", "period": 14, "smooth": 3, "line": "k"}, "right": {"kind": "constant", "value": 20}}
+    rising = {"kind": "compare", "operator": "gt", "left": {"kind": "change", "period": 7}, "right": {"kind": "constant", "value": 0}}
+    breakdown = {"kind": "compare", "operator": "crosses_below", "left": close, "right": {"kind": "lowest", "period": 10}}
+    built = {
+        "schema_version": 2,
+        "instrument": FIXTURE_SYMBOL,
+        "extra_instruments": ["ETHUSDT"],
+        "timeframe": "1d",
+        "sides": [
+            {
+                "direction": "long",
+                "entry": {
+                    "kind": "score",
+                    "threshold": 2,
+                    "parts": [{"weight": 1, "condition": breakout}, {"weight": 1, "condition": busy}, {"weight": 1, "condition": oversold}, {"weight": 1, "condition": rising}],
+                },
+                "exit": {"rule": breakdown, "trailing_stop_pct": 8},
+            }
+        ],
+    }
+    client = make_client(FakeBuilder(json.dumps({"message": "Done.", "strategy": built, "unsupported": []})))
+
+    response = ask(client, "Buy when at least two of these fire, let profits run, test it on ETH too")
+
+    assert response["status"] == "ok"
+    returned = response["strategy"]
+    assert returned["extra_instruments"] == ["ETHUSDT"]
+    assert returned["sides"][0]["entry"]["kind"] == "score"
+    assert returned["sides"][0]["exit"]["trailing_stop_pct"] == 8
+
+
+def test_the_assistant_is_told_about_the_new_blocks() -> None:
+    builder = FakeBuilder(json.dumps({"message": "ok", "strategy": None, "unsupported": []}))
+    client = make_client(builder)
+
+    ask(client)
+
+    for term in ("highest", "lowest", "change", "relative_volume", "stochastic", "score", "trailing_stop_pct", "extra_instruments"):
+        assert term in builder.system_prompt

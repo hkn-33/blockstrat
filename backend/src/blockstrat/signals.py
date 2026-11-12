@@ -1,7 +1,7 @@
 """Turns operands and conditions into per-bar series, computed on the whole history at once."""
 
 import pandas as pd
-from ta.momentum import RSIIndicator
+from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.trend import MACD, EMAIndicator, SMAIndicator
 from ta.volatility import BollingerBands
 
@@ -9,16 +9,22 @@ from blockstrat.schema import (
     AllOf,
     AnyOf,
     BollingerOperand,
+    ChangeOperand,
     Comparison,
     Condition,
     ConstantOperand,
     EmaOperand,
+    HighestOperand,
+    LowestOperand,
     MacdOperand,
     Negation,
     Operand,
     PriceOperand,
+    RelativeVolumeOperand,
     RsiOperand,
+    Score,
     SmaOperand,
+    StochasticOperand,
 )
 
 PRICE_COLUMNS = {"open": "Open", "high": "High", "low": "Low", "close": "Close", "volume": "Volume"}
@@ -49,6 +55,20 @@ def operand_series(bars: pd.DataFrame, operand: Operand) -> pd.Series:
             if band == "lower":
                 return bollinger.bollinger_lband()
             return bollinger.bollinger_mavg()
+        case HighestOperand(period=period):
+            return bars["High"].shift(1).rolling(period).max()
+        case LowestOperand(period=period):
+            return bars["Low"].shift(1).rolling(period).min()
+        case ChangeOperand(period=period):
+            return (close / close.shift(period) - 1) * 100
+        case RelativeVolumeOperand(period=period):
+            volume = bars["Volume"]
+            return volume / volume.rolling(period).mean()
+        case StochasticOperand(period=period, smooth=smooth, line=line):
+            stochastic = StochasticOscillator(bars["High"], bars["Low"], close, window=period, smooth_window=smooth)
+            if line == "d":
+                return stochastic.stoch_signal()
+            return stochastic.stoch()
         case ConstantOperand(value=value):
             return pd.Series(value, index=bars.index, dtype="float64")
 
@@ -70,6 +90,11 @@ def condition_series(bars: pd.DataFrame, condition: Condition) -> pd.Series:
             return result
         case Negation(condition=inner):
             return ~condition_series(bars, inner)
+        case Score(threshold=threshold, parts=parts):
+            total = pd.Series(0.0, index=bars.index)
+            for part in parts:
+                total += condition_series(bars, part.condition) * part.weight
+            return total >= threshold
 
 
 def condition_operands(condition: Condition) -> list[Operand]:
@@ -80,6 +105,8 @@ def condition_operands(condition: Condition) -> list[Operand]:
             return [operand for inner in conditions for operand in condition_operands(inner)]
         case Negation(condition=inner):
             return condition_operands(inner)
+        case Score(parts=parts):
+            return [operand for part in parts for operand in condition_operands(part.condition)]
 
 
 def warmed_up(bars: pd.DataFrame, operands: list[Operand]) -> pd.Series:

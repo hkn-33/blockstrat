@@ -99,9 +99,9 @@ onBeforeUnmount(() => chart?.remove())
 
 <template>
   <div>
-    <LandingChartBar name="Example candles" detail="how a fill works, not market data">
+    <ChartBar name="Example candles" detail="how a fill works, not market data">
       <span>Fill <b>{{ FILL_PRICE.toFixed(2) }}</b></span>
-    </LandingChartBar>
+    </ChartBar>
     <div ref="container" class="mx-3 h-[240px]" role="img" aria-label="Illustration: a buy signal on one candle's close, filled at the next candle's open price" />
   </div>
 </template>

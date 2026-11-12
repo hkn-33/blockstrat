@@ -14,7 +14,8 @@ from blockstrat.schema import TIMEFRAMES, StrategyDraft
 
 class AiMessage(BaseModel):
     role: Literal["user", "assistant"]
-    text: str = Field(min_length=1, max_length=2000)
+    # Long enough for a strategy pasted from another AI's answer or a forum post.
+    text: str = Field(min_length=1, max_length=6000)
 
 
 class AiBuildRequest(BaseModel):
@@ -147,10 +148,18 @@ Return the complete strategy as JSON that matches the response schema exactly; n
 Rules:
 - Instruments (use the symbol): {symbols}.
 - Timeframes: {", ".join(TIMEFRAMES)}.
-- A strategy has one entry rule (long or short with a condition) and an exit: an exit rule, a stop-loss %, a take-profit %, or a combination.
-- Conditions compare two operands (price fields, SMA, EMA, RSI, MACD lines, Bollinger bands, constants) with gt, lt, crosses_above or crosses_below, and combine with and / or / not.
+- A strategy has one or two sides in "sides": a long side, a short side, or both. Each side has a direction, an "entry" condition and an "exit": an exit rule, a stop-loss %, a take-profit %, a trailing stop %, or a combination. Use both sides only when the user wants to trade both ways; the two sides must face different directions.
+- The backtest holds one position at a time: a position closes only by its own side's exit, and when both sides signal on the same candle nothing opens.
+- Conditions compare two operands (price fields, SMA, EMA, RSI, MACD lines, Bollinger bands, highest, lowest, change, relative_volume, stochastic, constants) with gt, lt, crosses_above or crosses_below, and combine with and / or / not / score.
+- "highest" / "lowest" are the highest High / lowest Low of the previous N candles, without the current one: "breakout of the 20-candle high" is close crosses_above highest 20, "breakdown below the 10-candle low" is close crosses_below lowest 10.
+- "change" is the % change of the close over N candles: "up more than 5% in a week" on 1d is change 7 gt 5.
+- "relative_volume" is volume divided by its N-candle average: "volume spike" or "twice the usual volume" is relative_volume 20 gt 2.
+- "stochastic" is the stochastic oscillator (line "k" or the smoothed "d", 0 to 100): "stochastic oversold" is stochastic lt 20, "overbought" is gt 80.
+- "score" adds up the weights of the parts that are true and holds when the sum reaches the threshold: "at least two of these three signals" is score threshold 2 with three parts of weight 1; "this signal counts double" gives that part weight 2. The threshold must not exceed the sum of the weights.
+- "trailing_stop_pct" in the exit follows the price: N% below the highest high since entry for a long, N% above the lowest low for a short. Use it for "let profits run", "trailing stop" or "lock in gains".
+- "extra_instruments" lists up to 9 other instruments to test the same strategy on, one at a time, never the main "instrument": "test it on BTC and ETH" is instrument BTCUSDT with extra_instruments ["ETHUSDT"].
 - Keep parts the user did not ask to change exactly as they are in the current strategy.
-- If the user wants something the schema cannot express (other indicators, several instruments, pyramiding, time-of-day rules, live trading), build the closest strategy you can and list what you left out in "unsupported".
+- If the user wants something the schema cannot express (other indicators, a portfolio across instruments, pyramiding, time-of-day rules, live trading), build the closest strategy you can and list what you left out in "unsupported".
 - If the request is not about building a strategy, set "strategy" to null and say what you can help with.
 - Do not give investment advice or predict prices; this is a tool for testing ideas on past data.
 - Reply in the user's language, in one or two short sentences."""

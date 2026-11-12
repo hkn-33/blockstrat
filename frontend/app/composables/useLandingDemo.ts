@@ -1,4 +1,6 @@
 import demo from '~/data/landing-demo.json'
+import type { ChartData } from '~/utils/chartData'
+import type { ResultSummary } from '~/utils/resultSummary'
 
 // Real backtests on the builder's preview window (the latest 3000 four-hour candles), precomputed by
 // backend/scripts/landing_demo.py so the prerendered landing page works without the API.
@@ -46,7 +48,7 @@ export interface RuleGroup {
   conditions: RuleCondition[]
 }
 
-export const DEMO_STARTING_CASH = 10_000
+export const DEMO_STARTING_CASH = STARTING_CASH
 export const DEMO_TAKE_PROFIT_PCT = demo.take_profit_pct
 
 export const DEMO_MARKETS: { value: DemoMarket, label: string, icon: string, name: string }[] = [
@@ -64,6 +66,13 @@ export const COMPARISON_MARKETS: { value: DemoMarket, label: string, icon: strin
 
 export const DEMO_STOP_LOSSES: DemoStopLoss[] = [5, 10]
 
+/** What each demo strategy is called on its builder card. */
+export const DEMO_STRATEGY_NAMES: Record<DemoStrategy, string> = {
+  combo: 'Trend with an RSI filter',
+  trend: 'Trend',
+  dip: 'Buy the dip',
+}
+
 const RUNS = demo.runs as unknown as Record<string, DemoRun>
 const MARKETS = demo.markets as unknown as Record<DemoMarket, { candles: DemoCandle[] }>
 
@@ -79,29 +88,6 @@ export function demoCandles(market: DemoMarket): DemoCandle[] {
 
 export function demoMarket(market: DemoMarket): { value: DemoMarket, label: string, icon: string, name: string } {
   return [...DEMO_MARKETS, ...COMPARISON_MARKETS].find(option => option.value === market)!
-}
-
-export function formatSignedPercent(value: number, digits = 1): string {
-  const sign = value > 0 ? '+' : value < 0 ? '−' : ''
-  return `${sign}${Math.abs(value).toFixed(digits)}%`
-}
-
-export function formatDollars(value: number): string {
-  const sign = value < 0 ? '−' : ''
-  return `${sign}$${Math.abs(Math.round(value)).toLocaleString('en-US')}`
-}
-
-/** The account balance after a return on the demo's starting cash, e.g. 25.4 -> 12,540. */
-export function balanceAfter(returnPct: number): number {
-  return DEMO_STARTING_CASH * (1 + returnPct / 100)
-}
-
-/** The gap to simply holding the coin, in dollars on the starting cash, in words a non-trader reads:
- * "$6,820 more than holding SOL" or "$790 less than holding BTC". */
-export function holdingGap(metrics: { total_return_pct: number, buy_and_hold_return_pct: number }, coin: string): { dollars: string, words: string, isAhead: boolean } {
-  const gap = balanceAfter(metrics.total_return_pct) - balanceAfter(metrics.buy_and_hold_return_pct)
-  const isAhead = gap >= 0
-  return { dollars: formatDollars(Math.abs(gap)), words: `${isAhead ? 'more' : 'less'} than holding ${coin}`, isAhead }
 }
 
 /** The entry and exit groups of each demo strategy, as the builder would show them. */
@@ -175,19 +161,8 @@ export function strategyJsonLines(strategy: DemoStrategy, market: DemoMarket, st
   return [...head, ...entry, `  ${key('exit')}: ${brace('{')}`, `    ${key('rule')}:`, ...exitRule, ...exitTail, `  ${brace('}')}`, brace('}')]
 }
 
-/** A run's numbers as they stood part of the way through the period, for a chart that draws with the scroll. */
-export interface RunSnapshot {
-  total_return_pct: number
-  buy_and_hold_return_pct: number
-  max_drawdown_pct: number
-  trade_count: number
-  win_rate_pct: number
-  best_trade_pct: number | null
-  worst_trade_pct: number | null
-  fees_paid: number
-}
-
-export function runSnapshot(market: DemoMarket, run: DemoRun, fraction = 1): RunSnapshot {
+/** A demo run's numbers as they stood part of the way through the period, for a chart drawn by the scroll. */
+export function runSnapshot(market: DemoMarket, run: DemoRun, fraction = 1): ResultSummary {
   const candles = demoCandles(market)
   const lastIndex = Math.max(1, Math.min(candles.length, Math.ceil(fraction * candles.length))) - 1
   const lastTime = candles[lastIndex]![0]
@@ -213,5 +188,17 @@ export function runSnapshot(market: DemoMarket, run: DemoRun, fraction = 1): Run
     best_trade_pct: returns.length ? Math.max(...returns) : null,
     worst_trade_pct: returns.length ? Math.min(...returns) : null,
     fees_paid: run.trades.length ? (run.fees_paid * closed.length) / run.trades.length : 0,
+  }
+}
+
+/** A demo run in the chart's terms: daily candles with volume, the balance, holding and the trades. */
+export function demoChartData(market: DemoMarket, run: DemoRun): ChartData {
+  const candles = demoCandles(market)
+  const firstClose = candles[0]![4]
+  return {
+    candles: candles.map(([time, open, high, low, close, volume]) => ({ time, open, high, low, close, volume })),
+    equity: candles.map(([time], index) => ({ time, value: run.equity[index] ?? DEMO_STARTING_CASH })),
+    holding: candles.map(([time, , , , close]) => ({ time, value: (DEMO_STARTING_CASH * close) / firstClose })),
+    trades: run.trades,
   }
 }

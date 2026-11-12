@@ -5,24 +5,18 @@
   --font-display: "Satoshi", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-  /* Brand palette, shared by the landing page and the builder. Block colours live on the blocks only. */
+  /* Brand palette, shared by the landing page and the builder. */
   --color-ink: #0d1b24;
   --color-petrol: #0e3f47;
   --color-petrol-deep: #082a30;
   --color-lime: #c8f25a;
   --color-canvas: #eef5f6;
-  --color-dots: #c5d6db;
   --color-gain: #0e9963;
   --color-loss: #e5483e;
   /* The same gain and loss, lightened to read on the dark chart panels. */
   --color-gain-bright: #2fc59f;
   --color-loss-bright: #ff5a63;
-  --color-market: #1f6f78;
   --color-indicator: #3d6ef5;
-  --color-condition: #0f8a8a;
-  --color-action: #16a37a;
-  --color-risk: #ec5b4d;
-  --color-root: #0e3f47;
 }
 
 /* Lenis smooths the landing page itself; native smooth scrolling would fight it there. */
@@ -41,36 +35,147 @@ body {
   color: #0d1b24;
 }
 
+/* The builder: a dragged block is copied onto <body>, so body carries the builder's theme colours too. */
+body.app {
+  background: var(--panel);
+  color: var(--panel-ink);
+}
+
 ::selection {
   background: var(--color-lime);
   color: var(--color-ink);
 }
 
-
-/* Blockly's toolbox inherits the app font and gets a bit more breathing room. */
-.blocklyToolboxCategory {
-  padding: 4px 0;
-}
-
-.blocklyTreeLabel {
+/* Light and dark surfaces shared by the landing page (.lp) and the builder (.app). */
+.lp,
+.app {
+  --page: #ffffff;
+  --surface: #ffffff;
+  --ink: var(--color-ink);
+  --ink-soft: #394c57;
+  --muted: #56676f;
+  --line: #dde6e9;
+  --tint: rgb(13 27 36 / 0.05);
+  --tint-strong: #e7edf0;
+  --canvas-bg: var(--color-canvas);
+  --board-bg: #e3edef;
+  --card-shadow: 0 1px 2px rgb(13 27 36 / 0.05), 0 20px 40px -28px rgb(13 27 36 / 0.35);
+  --hero-bg: #e9f2f3;
+  --band-bg: #e4eef0;
+  --panel: #ffffff;
+  --panel-2: #f4f8f9;
+  --panel-ink: #0d1b24;
+  --panel-soft: #56676f;
+  --panel-line: rgb(13 27 36 / 0.09);
+  --panel-fill: rgb(13 27 36 / 0.05);
+  --panel-fill-strong: rgb(13 27 36 / 0.09);
+  --tile-bg: #ffffff;
+  --tile-line: rgb(13 27 36 / 0.12);
+  --tile-split: rgb(13 27 36 / 0.08);
+  --panel-shadow: inset 0 0 0 1px rgb(13 27 36 / 0.08), 0 30px 60px -40px rgb(13 27 36 / 0.45);
+  --gain-ink: var(--color-gain);
+  --loss-ink: var(--color-loss);
+  --accent-ink: var(--color-gain);
+  --result-bg: rgb(14 153 99 / 0.08);
+  --result-ink: #0b6e48;
+  --code-key: #0e6f78;
+  --code-string: #0b7a4f;
+  --code-number: #2d5bd1;
+  --code-punctuation: #7a8c94;
+  --focus: var(--color-petrol);
+  --logo-ink: var(--color-ink);
+  --logo-accent: var(--color-gain);
+  --wordmark: #d2e2e5;
+  --nav-glass: rgb(255 255 255 / 0.78);
   font-family: var(--font-sans);
-  font-weight: 700;
 }
 
-/* The block list: a calm white panel, the category marks as small rounded squares. */
-.blocklyToolbox {
-  border-right: 1px solid #dde6e9;
+/* In the builder the gain, loss and accent colours are mostly small text and thin outlines. On white the
+   brand shades fall short of readable contrast (about 3.6 to 1), so the light builder uses darker ones. */
+.app {
+  --gain-ink: #0a7a4e;
+  --loss-ink: #c52f26;
+  --accent-ink: #0a7a4e;
 }
 
-.blocklyToolboxCategoryIcon {
-  border-radius: 4px;
+.dark .lp,
+.dark .app {
+  --page: #071d21;
+  --surface: #0e272c;
+  --ink: #eaf2f3;
+  --ink-soft: rgb(234 242 243 / 0.78);
+  --muted: rgb(234 242 243 / 0.66);
+  --line: rgb(255 255 255 / 0.09);
+  --tint: rgb(255 255 255 / 0.06);
+  --tint-strong: rgb(255 255 255 / 0.1);
+  --canvas-bg: #0a2226;
+  --board-bg: #04161a;
+  --card-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 20px 40px -28px rgb(0 0 0 / 0.6);
+  --hero-bg: #082a30;
+  --band-bg: #082a30;
+  --panel: #0b2125;
+  --panel-2: #061e23;
+  --panel-ink: #ffffff;
+  --panel-soft: rgb(214 226 230 / 0.75);
+  --panel-line: rgb(255 255 255 / 0.08);
+  --panel-fill: rgb(255 255 255 / 0.06);
+  --panel-fill-strong: rgb(255 255 255 / 0.14);
+  --tile-bg: rgb(255 255 255 / 0.09);
+  --tile-line: rgb(255 255 255 / 0.2);
+  --tile-split: rgb(255 255 255 / 0.1);
+  --panel-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 30px 60px -40px rgb(0 0 0 / 0.6);
+  --gain-ink: var(--color-gain-bright);
+  --loss-ink: var(--color-loss-bright);
+  --accent-ink: var(--color-lime);
+  --result-bg: rgb(200 242 90 / 0.1);
+  --result-ink: #e7f9b8;
+  --code-key: #7fe3d6;
+  --code-string: var(--color-lime);
+  --code-number: #b8d0ff;
+  --code-punctuation: #7f9da2;
+  --focus: var(--color-lime);
+  --logo-ink: #ffffff;
+  --logo-accent: var(--color-lime);
+  --wordmark: var(--color-petrol);
+  --nav-glass: rgb(8 42 48 / 0.72);
 }
 
-.blocklyFlyoutBackground {
-  fill-opacity: 0.96;
+/* Number fields in the builder are plain fields: the browser's grey spinner arrows clash with every
+   theme, and the arrow keys still step the value. */
+.app input[type="number"] {
+  appearance: textfield;
+  font-variant-numeric: tabular-nums;
 }
 
-.blocklyText,
-.blocklyFlyoutLabelText {
-  font-family: var(--font-sans) !important;
+.app input[type="number"]::-webkit-inner-spin-button,
+.app input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+/* Thin scrollbars in the builder's own colours, in both themes. */
+.app,
+.app * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tile-line) transparent;
+}
+
+.app ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.app ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app ::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--tile-line);
+  background-clip: padding-box;
+}
+
+.app ::-webkit-scrollbar-thumb:hover {
+  background-color: var(--panel-soft);
 }
