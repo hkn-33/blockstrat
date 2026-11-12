@@ -55,7 +55,8 @@ function open(part: TilePart, event: MouseEvent): void {
   align-items: center;
   gap: 0.45em;
   padding: 0.45em 0.7em;
-  white-space: nowrap;
+  /* A tile stays on one line while it has room; in a narrow place its parts wrap rather than being cut off. */
+  text-align: left;
   color: inherit;
   font: inherit;
 }
@@ -70,6 +71,7 @@ function open(part: TilePart, event: MouseEvent): void {
 }
 
 .segment--operator {
+  white-space: nowrap;
   color: var(--panel-soft);
 }
 
@@ -110,11 +112,5 @@ function open(part: TilePart, event: MouseEvent): void {
 
 .tile--risk .dot {
   background: var(--color-loss);
-}
-
-@media (max-width: 480px) {
-  .segment {
-    white-space: normal;
-  }
 }
 </style>

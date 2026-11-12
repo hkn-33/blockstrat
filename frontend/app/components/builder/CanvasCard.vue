@@ -4,7 +4,7 @@ import { Handle, Position } from '@vue-flow/core'
 // One card on the canvas, with a grip on its top edge to move it by. The card the guide is waiting for gets
 // a dashed outline and, beside it, a short instruction with a hand-drawn arrow onto the place to fill, and a
 // button that turns the hints off.
-withDefaults(defineProps<{ isNext?: boolean, hint?: string, first?: boolean, last?: boolean }>(), { isNext: false, hint: '', first: false, last: false })
+withDefaults(defineProps<{ isNext?: boolean, hint?: string, hintSide?: 'left' | 'right', first?: boolean, last?: boolean }>(), { isNext: false, hint: '', hintSide: 'left', first: false, last: false })
 const emit = defineEmits<{ hideHints: [] }>()
 </script>
 
@@ -15,7 +15,7 @@ const emit = defineEmits<{ hideHints: [] }>()
     <slot />
     <Handle v-if="!last" type="source" :position="Position.Bottom" class="handle" :connectable="false" />
 
-    <div v-if="isNext && hint" class="guide">
+    <div v-if="isNext && hint" class="guide" :class="`guide--${hintSide}`">
       <div class="guide-note">
         <p class="guide-text">
           {{ hint }}
@@ -115,7 +115,6 @@ const emit = defineEmits<{ hideHints: [] }>()
 .guide {
   position: absolute;
   top: var(--guide-top, 2.2rem);
-  right: calc(100% + 0.9rem);
   display: flex;
   /* Placed outside the card, it would otherwise be squeezed to its narrowest. */
   width: max-content;
@@ -164,9 +163,23 @@ const emit = defineEmits<{ hideHints: [] }>()
   outline-offset: 2px;
 }
 
+.guide--left {
+  right: calc(100% + 0.9rem);
+}
+
+/* The second lane's note stands on its outer side, so it never covers the first lane. */
+.guide--right {
+  left: calc(100% + 0.9rem);
+  flex-direction: row-reverse;
+}
+
 .guide-arrow {
   width: 2.8rem;
   margin-top: 0.9rem;
+}
+
+.guide--right .guide-arrow {
+  scale: -1 1;
 }
 
 /* One column of cards fills a narrow screen, so the note moves above the card and the arrow goes. */

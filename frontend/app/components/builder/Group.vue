@@ -307,6 +307,12 @@ button.weight[aria-expanded="true"] {
   color: var(--panel-ink);
 }
 
+/* A row with a mark keeps the mark beside its tile: the tile narrows and wraps instead of dropping below. */
+.rules-row:has(> .weight) {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
 .weighted-note {
   margin: 0.5em 0 0 0.85em;
   font-size: 12.5px;

@@ -36,14 +36,14 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - Folder-level only, one line per entry. Don't list individual files.
 
 ### Folders
-- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), AI strategy builder (Gemini).
+- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), strategies suggested from trades marked on a chart, AI strategy builder (Gemini).
 - `backend/src/blockstrat/`: the backend package.
 - `backend/scripts/`: one-off data scripts (the landing page's precomputed demo backtests, candles and trades).
 - `backend/tests/`: API-level tests (pytest) with fixture market data and a fake Gemini client.
 - `frontend/`: Nuxt + Tailwind app: prerendered landing page (`/`) and the client-only builder panel (`/app`).
 - `frontend/app/pages/`: the landing page and the builder panel.
 - `frontend/app/components/`: pieces shared by the landing page and the builder (TradingView-style chart, strategy tester, rule tile, logo, icons).
-- `frontend/app/components/builder/`: the builder at `/app`: block library with indicator help and the large indicator chart, the Vue Flow canvas of strategy cards with its guide, rule groups with drag and drop, popovers, per-market results with the test settings, assistant and JSON panels, and the hand that builds a finished strategy on screen.
+- `frontend/app/components/builder/`: the builder at `/app`: block library with indicator help and the large indicator chart, the Vue Flow canvas of strategy cards with its guide, rule groups with drag and drop, popovers, per-market results with the test settings, assistant and JSON panels, the hand that builds a finished strategy on screen, and the chart view where trades are marked and matching strategies proposed.
 - `frontend/app/components/landing/`: landing-page sections and pieces (read-only builder canvas that builds itself, TradingView-style chart and strategy tester, product window, pinned steps, AI demo).
 - `frontend/app/assets/icons/`: Lucide interface glyphs, inlined by `UiIcon`.
 - `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).

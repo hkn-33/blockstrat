@@ -17,6 +17,9 @@ export interface ApiTypes {
   execution_preset: ExecutionPreset;
   ai_build_request: AiBuildRequest;
   ai_build_response: AiBuildOk | AiBuildFailed;
+  bars_response: BarsResponse;
+  suggest_request: SuggestRequest;
+  suggest_response: SuggestResponse;
 }
 /**
  * A complete strategy, ready to backtest.
@@ -662,4 +665,69 @@ export interface AiBuildOk {
 export interface AiBuildFailed {
   status: "rate_limited" | "unavailable" | "invalid";
   message: string;
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "BarsResponse".
+ */
+export interface BarsResponse {
+  bars: Bar[];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SuggestRequest".
+ */
+export interface SuggestRequest {
+  instrument: string;
+  timeframe: "1d" | "4h" | "1h";
+  /**
+   * @maxItems 400
+   */
+  marks: Mark[];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "Mark".
+ */
+export interface Mark {
+  /**
+   * The marked candle's open time, UNIX seconds
+   */
+  time: number;
+  side: "buy" | "sell";
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SuggestResponse".
+ */
+export interface SuggestResponse {
+  proposals: Proposal[];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "Proposal".
+ */
+export interface Proposal {
+  name: string;
+  strategy: StrategyDraft;
+  buys_hit: number;
+  buys_marked: number;
+  /**
+   * Buy signals between the first and last mark with no buy mark near them
+   */
+  extra_buys: number;
+  sells_hit: number;
+  sells_marked: number;
+  extra_sells: number;
+  /**
+   * When the entry rule signals, within the candles /api/bars returns
+   */
+  entry_times: number[];
+  exit_times: number[];
+  /**
+   * On the whole history, not only the marked stretch
+   */
+  total_return_pct: number;
+  buy_and_hold_return_pct: number;
+  trade_count: number;
 }

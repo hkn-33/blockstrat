@@ -108,7 +108,14 @@ onMounted(async () => {
 <style scoped>
 .condition {
   display: grid;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem;
+}
+
+.condition > div {
+  min-width: 0;
 }
 
 .remove {
