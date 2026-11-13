@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ExecutionPreset } from '~/types/api'
 
-// How the test counts money: the share of the account in each trade, the exchange's fee and slippage.
+// How the test counts money: the share of the account in each trade, the leverage, the exchange's fee and
+// slippage.
 // It sits under the result it shapes, closed to one line that says what is in force, and opens to change it.
 defineProps<{ presets: ExecutionPreset[] }>()
 
@@ -18,8 +19,15 @@ function setNumber(field: 'positionSizePct' | 'commission_pct' | 'slippage_bps',
   }, field)
 }
 
+// The presets are about costs; the leverage chosen stays.
 function applyPreset(preset: ExecutionPreset): void {
-  editor.commit(current => ({ ...current, execution: { ...preset.execution } }))
+  editor.commit(current => ({ ...current, execution: { ...preset.execution, leverage: current.execution.leverage } }))
+}
+
+const LEVERAGES = [1, 2, 3, 5, 10]
+
+function setLeverage(leverage: number): void {
+  editor.commit(current => ({ ...current, execution: { ...current.execution, leverage } }))
 }
 
 function isPresetOn(preset: ExecutionPreset): boolean {
@@ -34,7 +42,7 @@ function isPresetOn(preset: ExecutionPreset): boolean {
       <UiIcon name="sliders-horizontal" />
       <span class="min-w-0">
         <span class="summary-title">How it is counted</span>
-        <span class="summary-values">{{ document.positionSizePct }}% of the account a trade, {{ document.execution.commission_pct }}% fee, {{ document.execution.slippage_bps }} bps slippage</span>
+        <span class="summary-values">{{ document.positionSizePct }}% of the account a trade<template v-if="document.execution.leverage > 1">, {{ document.execution.leverage }}× leverage</template>, {{ document.execution.commission_pct }}% fee, {{ document.execution.slippage_bps }} bps slippage</span>
       </span>
       <UiIcon name="chevron-down" class="chevron" />
     </summary>
@@ -59,6 +67,18 @@ function isPresetOn(preset: ExecutionPreset): boolean {
       <p v-if="problem" class="problem">
         {{ problem }}
       </p>
+
+      <div class="field">
+        <span class="field-text">
+          <span class="field-name">Leverage</span>
+          <span class="field-help">Each trade is this many times the money put in; a fall of 1 ÷ leverage wipes the account out</span>
+        </span>
+        <span class="presets" role="radiogroup" aria-label="Leverage">
+          <button v-for="leverage in LEVERAGES" :key="leverage" type="button" role="radio" class="preset" :class="{ 'is-on': document.execution.leverage === leverage }" :aria-checked="document.execution.leverage === leverage" @click="setLeverage(leverage)">
+            {{ leverage }}×
+          </button>
+        </span>
+      </div>
 
       <label class="field">
         <span class="field-text">

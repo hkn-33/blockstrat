@@ -1,11 +1,21 @@
 <script setup lang="ts">
 import type { Trade } from '~/types/api'
 
-// Every closed trade, newest first; choosing one moves the chart onto it.
+// The closed trades, newest first; choosing one moves the chart onto it. A strategy can make a thousand
+// trades: the list shows them a page at a time, because every row is laid out again whenever anything above
+// it changes, such as the chart's price line following the mouse.
 const props = defineProps<{ trades: Trade[] }>()
 const emit = defineEmits<{ select: [trade: Trade] }>()
 
-const rows = computed(() => [...props.trades].reverse())
+const PAGE_SIZE = 50
+const shownCount = ref(PAGE_SIZE)
+const newestFirst = computed(() => [...props.trades].reverse())
+const rows = computed(() => newestFirst.value.slice(0, shownCount.value))
+const hiddenCount = computed(() => newestFirst.value.length - rows.value.length)
+
+watch(() => props.trades, () => {
+  shownCount.value = PAGE_SIZE
+})
 
 const date = new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', year: '2-digit', timeZone: 'UTC' })
 
@@ -16,7 +26,7 @@ function when(seconds: number): string {
 
 <template>
   <div class="trades">
-    <p v-if="!rows.length" class="empty">
+    <p v-if="!newestFirst.length" class="empty">
       No trades yet. The rules never fired in this period: try looser numbers or a longer history.
     </p>
     <table v-else>
@@ -53,6 +63,9 @@ function when(seconds: number): string {
         </tr>
       </tbody>
     </table>
+    <button v-if="hiddenCount" type="button" class="more" @click="shownCount += PAGE_SIZE">
+      Show {{ Math.min(hiddenCount, PAGE_SIZE) }} more of {{ hiddenCount }} earlier trades
+    </button>
   </div>
 </template>
 
@@ -70,6 +83,27 @@ function when(seconds: number): string {
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.more {
+  display: block;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--panel-soft);
+  transition: background-color 140ms, color 140ms;
+}
+
+.more:hover {
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+}
+
+.more:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 th {

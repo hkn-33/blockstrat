@@ -27,7 +27,7 @@ A condition built from weighted conditions that holds when the weights of the tr
 _Avoid_: Vote, points, confluence
 
 **Exit Rule**:
-The condition that, when true, closes the open position.
+The condition that closes the open position on the bar it becomes true. One that already holds when the position is opened waits until it lets go and holds again (ADR 0005).
 _Avoid_: Close signal
 
 **Stop-loss**:

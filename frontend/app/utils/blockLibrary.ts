@@ -114,6 +114,26 @@ export const INDICATOR_BLOCKS: IndicatorBlock[] = [
   },
 ]
 
+// A glyph per indicator, so a list or a tile reads at a glance: a gauge for the 0 to 100 oscillators, lines
+// for averages, bars for volume.
+const INDICATOR_ICONS: Record<IndicatorKind, string> = {
+  price: 'chart-candlestick',
+  sma: 'spline',
+  ema: 'activity',
+  rsi: 'gauge',
+  macd: 'chart-column',
+  bollinger: 'chart-area',
+  highest: 'arrow-up-to-line',
+  lowest: 'arrow-down-to-line',
+  change: 'percent',
+  relative_volume: 'audio-lines',
+  stochastic: 'waves',
+}
+
+export function indicatorIcon(kind: IndicatorKind): string {
+  return INDICATOR_ICONS[kind]
+}
+
 export function indicatorBlock(kind: IndicatorKind): IndicatorBlock {
   return INDICATOR_BLOCKS.find(block => block.kind === kind)!
 }

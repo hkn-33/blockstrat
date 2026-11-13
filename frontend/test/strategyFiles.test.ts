@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StrategyDraft } from '~/types/api'
-import { InvalidStrategyError, parseStrategy, serializeStrategy, shareHash, strategyFromHash } from '~/utils/strategyFiles'
+import { InvalidStrategyError, autosaved, freeLibraryName, parseStrategy, serializeStrategy, shareHash, strategyFromHash } from '~/utils/strategyFiles'
 
 const rsiBelow30 = { kind: 'compare', operator: 'lt', left: { kind: 'rsi', period: 14 }, right: { kind: 'constant', value: 30 } } as const
 const closeAboveSma200 = { kind: 'compare', operator: 'gt', left: { kind: 'price', field: 'close' }, right: { kind: 'sma', period: 200 } } as const
@@ -15,7 +15,7 @@ const strategy: StrategyDraft = {
     { direction: 'short', entry: { ...closeAboveSma200, operator: 'lt' }, exit: { rule: null, stop_loss_pct: 4, take_profit_pct: null, trailing_stop_pct: 8 } },
   ],
   position_size_pct: 50,
-  execution: { commission_pct: 0.1, slippage_bps: 5 },
+  execution: { commission_pct: 0.1, slippage_bps: 5, leverage: 1 },
 }
 
 // The same long side as saved by the first version of the builder.
@@ -71,5 +71,40 @@ describe('share links', () => {
 
   it('rejects a broken link', () => {
     expect(() => strategyFromHash('#s=%%%garbage')).toThrow(InvalidStrategyError)
+  })
+})
+
+describe('library names', () => {
+  it('keeps a free name and numbers a taken one', () => {
+    const library = { 'RSI dip': strategy, 'RSI dip 2': strategy }
+
+    expect(freeLibraryName(library, 'Breakout')).toBe('Breakout')
+    expect(freeLibraryName(library, 'RSI dip')).toBe('RSI dip 3')
+  })
+})
+
+describe('saving as you go', () => {
+  const other = { ...strategy, position_size_pct: 20 }
+
+  it('names an untitled strategy and keeps it', () => {
+    const saved = autosaved({}, null, '', strategy)
+
+    expect(saved).toEqual({ name: 'Untitled strategy', savedAs: 'Untitled strategy', library: { 'Untitled strategy': strategy } })
+  })
+
+  it('updates the strategy in place as it changes', () => {
+    expect(autosaved({ 'RSI dip': strategy }, 'RSI dip', 'RSI dip', other).library).toEqual({ 'RSI dip': other })
+  })
+
+  it('moves the strategy to its new name when renamed', () => {
+    expect(autosaved({ 'RSI dip': strategy, 'Breakout': other }, 'RSI dip', 'RSI bounce', strategy).library)
+      .toEqual({ 'RSI bounce': strategy, 'Breakout': other })
+  })
+
+  it('never overwrites another strategy that has the name', () => {
+    const saved = autosaved({ 'RSI dip': strategy, 'Breakout': other }, 'RSI dip', 'Breakout', strategy)
+
+    expect(saved.name).toBe('Breakout 2')
+    expect(saved.library).toEqual({ 'Breakout': other, 'Breakout 2': strategy })
   })
 })

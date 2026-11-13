@@ -74,6 +74,9 @@ class BinanceMarketData:
             if cached is not None and time.time() - cached[0] < REFRESH_AFTER_SECONDS:
                 return cached[1]
             frame = self._load_or_refresh(symbol, timeframe)
+            # pandas builds an index's lookup table on first use, and two threads doing that at once (the long
+            # and the short search) can see it as not unique. Built here, under the lock, it is shared read-only.
+            _ = frame.index.is_unique
             self._memory[key] = (time.time(), frame)
             return frame
 

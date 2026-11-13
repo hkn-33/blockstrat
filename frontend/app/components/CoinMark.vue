@@ -16,8 +16,8 @@ const icon = computed(() => coinIcon(props.symbol))
   height: 1.5rem;
   flex-shrink: 0;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
+  /* A thin ring keeps the dark logos (XRP, Cardano) apart from a dark panel. */
+  box-shadow: 0 0 0 1px var(--panel-line);
 }
 
 .coin-mark--letters {

@@ -217,6 +217,17 @@
             "full"
           ],
           "type": "string"
+        },
+        "period": {
+          "default": "all",
+          "enum": [
+            "3m",
+            "6m",
+            "1y",
+            "3y",
+            "all"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -596,11 +607,18 @@
           "maximum": 500,
           "minimum": 0,
           "type": "number"
+        },
+        "leverage": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "type": "number"
         }
       },
       "required": [
         "commission_pct",
-        "slippage_bps"
+        "slippage_bps",
+        "leverage"
       ],
       "title": "ExecutionModel",
       "type": "object"
@@ -904,6 +922,83 @@
         },
         "exposure_time_pct": {
           "type": "number"
+        },
+        "annual_return_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sortino_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "calmar_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "profit_factor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "avg_trade_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "avg_trade_hours": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_drawdown_days": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1025,33 +1120,38 @@
         "strategy": {
           "$ref": "#/$defs/StrategyDraft"
         },
-        "buys_hit": {
+        "exit_note": {
+          "description": "How the strategy gets out, in words, and why when it is not as drawn",
+          "type": "string"
+        },
+        "entries_hit": {
           "type": "integer"
         },
-        "buys_marked": {
+        "entries_marked": {
           "type": "integer"
         },
-        "extra_buys": {
-          "description": "Buy signals between the first and last mark with no buy mark near them",
+        "extra_entries": {
+          "description": "Entry signals between the first and last mark with no entry mark near them",
           "type": "integer"
         },
-        "sells_hit": {
+        "exits_hit": {
           "type": "integer"
         },
-        "sells_marked": {
+        "exits_marked": {
           "type": "integer"
         },
-        "extra_sells": {
+        "extra_exits": {
           "type": "integer"
         },
         "entry_times": {
-          "description": "When the entry rule signals, within the candles /api/bars returns",
+          "description": "When the strategy's trades got in, within the candles /api/bars returns",
           "items": {
             "type": "integer"
           },
           "type": "array"
         },
         "exit_times": {
+          "description": "When they got out, within the same candles",
           "items": {
             "type": "integer"
           },
@@ -1061,7 +1161,8 @@
           "description": "On the whole history, not only the marked stretch",
           "type": "number"
         },
-        "buy_and_hold_return_pct": {
+        "max_drawdown_pct": {
+          "description": "The deepest fall from a high on the whole history, zero or below",
           "type": "number"
         },
         "trade_count": {
@@ -1071,16 +1172,17 @@
       "required": [
         "name",
         "strategy",
-        "buys_hit",
-        "buys_marked",
-        "extra_buys",
-        "sells_hit",
-        "sells_marked",
-        "extra_sells",
+        "exit_note",
+        "entries_hit",
+        "entries_marked",
+        "extra_entries",
+        "exits_hit",
+        "exits_marked",
+        "extra_exits",
         "entry_times",
         "exit_times",
         "total_return_pct",
-        "buy_and_hold_return_pct",
+        "max_drawdown_pct",
         "trade_count"
       ],
       "title": "Proposal",
@@ -1483,7 +1585,8 @@
           "$ref": "#/$defs/ExecutionModel",
           "default": {
             "commission_pct": 0.1,
-            "slippage_bps": 5.0
+            "slippage_bps": 5.0,
+            "leverage": 1.0
           }
         }
       },
@@ -1567,7 +1670,8 @@
           "$ref": "#/$defs/ExecutionModel",
           "default": {
             "commission_pct": 0.1,
-            "slippage_bps": 5.0
+            "slippage_bps": 5.0,
+            "leverage": 1.0
           }
         }
       },
@@ -1596,12 +1700,46 @@
           ],
           "type": "string"
         },
+        "direction": {
+          "default": "long",
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
         "marks": {
           "items": {
             "$ref": "#/$defs/Mark"
           },
           "maxItems": 400,
           "type": "array"
+        },
+        "stop_loss_pct": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 100,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "take_profit_pct": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

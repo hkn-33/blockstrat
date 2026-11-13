@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { Trade } from '~/types/api'
+import type { StrategyDraft, Trade } from '~/types/api'
 import type TvChart from '~/components/TvChart.vue'
 import type { MarketRun, MarketRuns } from '~/composables/useBacktest'
+import type { BacktestPeriod } from '~/composables/useApi'
 import type { ResultSummary } from '~/utils/resultSummary'
 import type { GuideItem } from '~/utils/strategyGuide'
 import type { RequiredPart } from '~/utils/strategyDocument'
@@ -17,9 +18,23 @@ const props = defineProps<{
   checklist: GuideItem[]
   problemCount: number
   commissionPct: number
+  period: BacktestPeriod
+  strategy: StrategyDraft
 }>()
 
-const emit = defineEmits<{ retry: [] }>()
+const emit = defineEmits<{ 'retry': [], 'update:period': [period: BacktestPeriod] }>()
+
+// Short names, as on trading charts, so they fit one line however narrow the column; the tooltip says it whole.
+const PERIODS: { value: BacktestPeriod, label: string, name: string }[] = [
+  { value: '3m', label: '3M', name: 'The last 3 months' },
+  { value: '6m', label: '6M', name: 'The last 6 months' },
+  { value: '1y', label: '1Y', name: 'The last year' },
+  { value: '3y', label: '3Y', name: 'The last 3 years' },
+  { value: 'all', label: 'All', name: 'The whole history, since 2017' },
+]
+
+/** How long the shown result covers, in months, for the per-month figure. */
+const months = computed(() => (result.value ? Math.max((result.value.end_time - result.value.start_time) / (30.44 * 86_400), 0.5) : 0))
 
 const chart = ref<InstanceType<typeof TvChart> | null>(null)
 
@@ -65,17 +80,61 @@ const verdict = computed(() => marketsVerdict(markets.value.map(market => ({
 const pickedSymbol = ref<string | null>(null)
 const selected = computed(() => markets.value.find(market => market.symbol === pickedSymbol.value) ?? markets.value[0] ?? null)
 const result = computed(() => selected.value?.run.result ?? null)
+
+// Advanced mode adds the statistics a trader compares strategies by, each with a line on what it says.
+const { isAdvanced } = useBuilderMode()
+
+function ratio(value: number | null | undefined): string {
+  return value === null || value === undefined ? '–' : value.toFixed(2)
+}
+
+function percent(value: number | null | undefined): string {
+  return value === null || value === undefined ? '–' : formatSignedPercent(value)
+}
+
+function duration(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return '–'
+  return hours < 48 ? `${Math.round(hours)} h` : `${(hours / 24).toFixed(1)} days`
+}
+
+const advancedStats = computed(() => {
+  const metrics = result.value?.metrics
+  if (!metrics) return []
+  return [
+    { label: 'A year, compounded', value: percent(metrics.annual_return_pct), help: 'The yearly return that grows to the total over the period' },
+    { label: 'Sharpe ratio', value: ratio(metrics.sharpe_ratio), help: 'Return for each unit of swing; above 1 is good' },
+    { label: 'Sortino ratio', value: ratio(metrics.sortino_ratio), help: 'Like Sharpe, counting only the downward swings' },
+    { label: 'Calmar ratio', value: ratio(metrics.calmar_ratio), help: 'Yearly return against the deepest fall' },
+    { label: 'Profit factor', value: ratio(metrics.profit_factor), help: 'What the winners made for each dollar the losers lost' },
+    { label: 'Average trade', value: percent(metrics.avg_trade_pct), help: 'The mean result of one trade, after fees' },
+    { label: 'Average hold', value: duration(metrics.avg_trade_hours), help: 'How long a trade stays open, on average' },
+    { label: 'In the market', value: `${Math.round(metrics.exposure_time_pct)}%`, help: 'The share of the time a trade was open' },
+    { label: 'Longest fall', value: duration(metrics.max_drawdown_days === null || metrics.max_drawdown_days === undefined ? null : metrics.max_drawdown_days * 24), help: 'The longest stretch below the last high' },
+  ]
+})
 const error = computed(() => selected.value?.run.error ?? null)
 const isSelectedLoading = computed(() => selected.value?.run.isLoading ?? false)
 const coin = computed(() => selected.value?.coin ?? '')
 
 const chartData = computed(() => (result.value ? chartDataFromResult(result.value) : null))
+// Advanced draws the strategy's own indicators on its chart, when every candle is shown as it was tested:
+// on merged candles an average would not be the one the rules read.
+const indicatorLines = computed(() => {
+  const shown = result.value
+  if (!isAdvanced.value || !shown || shown.bars.length !== shown.bar_count) return []
+  return strategyIndicatorLines(props.strategy, shown.bars)
+})
 
 const period = computed(() => {
   if (!result.value) return ''
   const format = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
   const span = `${format.format(new Date(result.value.start_time * 1000))} to ${format.format(new Date(result.value.end_time * 1000))}`
-  return `Full history, ${span}, ${result.value.bar_count.toLocaleString('en-US')} candles`
+  const candles = `${span}, ${result.value.bar_count.toLocaleString('en-US')} candles`
+  // A long history reaches the chart merged into fewer candles; the trades were tested on every one.
+  const testedCandleSeconds = (result.value.end_time - result.value.start_time) / Math.max(result.value.bar_count - 1, 1)
+  const chartCandleSeconds = (result.value.bars[1]?.time ?? 0) - (result.value.bars[0]?.time ?? 0)
+  const merged = Math.round(chartCandleSeconds / testedCandleSeconds)
+  return merged > 1 ? `${candles}, shown ${merged} to a chart candle` : candles
 })
 
 function selectTrade(trade: Trade): void {
@@ -236,7 +295,7 @@ function tone(value: number): string {
           <path d="M8 124 L 46 112 L 78 112 L 118 86 L 150 86 L 192 58 L 226 58 L 268 34 L 312 22" class="working-line" pathLength="1" />
         </svg>
         <p class="state-title">
-          Replaying every candle
+          Analysing the data
         </p>
         <p class="mt-1 text-[var(--panel-soft)]">
           Checking your rules on the whole history, with fees on every trade.
@@ -245,7 +304,12 @@ function tone(value: number): string {
 
       <div v-else class="market-result">
         <div class="period-bar">
-          <span>{{ period }}</span>
+          <div class="periods" role="radiogroup" aria-label="How much of the history to test">
+            <button v-for="option in PERIODS" :key="option.value" type="button" role="radio" :aria-checked="props.period === option.value" :class="{ 'is-on': props.period === option.value }" v-tip="option.name" @click="emit('update:period', option.value)">
+              {{ option.label }}
+            </button>
+          </div>
+          <span class="period-span">{{ period }}</span>
           <span class="ml-auto flex items-center gap-2">
             <span v-if="error" class="text-[var(--loss-ink)]">{{ error }}</span>
             <button type="button" class="action action--small" @click="chart?.showAll()">
@@ -262,9 +326,23 @@ function tone(value: number): string {
             :height="300"
             theme="auto"
             interactive
-            redraw-animated
+            :indicators="indicatorLines"
           />
-          <StrategyTester :summary="selected!.summary!" :coin="coin" />
+          <StrategyTester :summary="selected!.summary!" :coin="coin" :months="months" :compact="!isAdvanced" />
+          <section v-if="isAdvanced" class="advanced-stats" aria-label="Further statistics">
+            <h3 class="advanced-title">
+              <UiIcon name="graduation-cap" /> Further statistics
+            </h3>
+            <dl class="advanced-grid">
+              <div v-for="stat in advancedStats" :key="stat.label" :title="stat.help">
+                <dt>{{ stat.label }}</dt>
+                <dd>{{ stat.value }}</dd>
+                <p class="advanced-help">
+                  {{ stat.help }}
+                </p>
+              </div>
+            </dl>
+          </section>
           <div v-if="result.sides.length > 1 || result.both_signalled" class="side-split">
             <div v-for="side in result.sides" :key="side.direction" class="side-row">
               <span class="side-name" :class="`side-name--${side.direction}`">{{ side.direction === 'long' ? 'Long side' : 'Short side' }}</span>
@@ -278,9 +356,17 @@ function tone(value: number): string {
           </div>
           <BuilderTradeList class="trade-list" :trades="result.trades" @select="selectTrade" />
         </div>
-        <p v-if="isSelectedLoading" class="loading" role="status">
-          <span class="loading-dot" /> Replaying every candle
-        </p>
+        <Transition name="analysing">
+          <div v-if="isSelectedLoading" class="analysing" role="status">
+            <p class="analysing-title">
+              <span class="analysing-spinner" aria-hidden="true" /> Analysing the data
+            </p>
+            <p class="analysing-text">
+              Replaying {{ result.bar_count.toLocaleString('en-US') }} candles with fees on every trade
+            </p>
+            <span class="analysing-track"><span class="analysing-fill" /></span>
+          </div>
+        </Transition>
       </div>
     </template>
   </div>
@@ -405,20 +491,41 @@ function tone(value: number): string {
   }
 }
 
-.loading-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  margin-right: 0.35rem;
-  border-radius: 999px;
-  background: var(--color-lime);
-  animation: breathe 1s ease-in-out infinite;
+/* The periods share the whole width evenly. */
+.periods {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--panel-fill);
+  padding: 2px;
 }
 
-@keyframes breathe {
-  50% {
-    opacity: 0.55;
-  }
+.periods button {
+  border-radius: 7px;
+  padding: 0.2rem 0.55rem;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--panel-soft);
+  transition: background-color 140ms, color 140ms;
+}
+
+.periods button.is-on {
+  background: var(--panel);
+  color: var(--panel-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15), inset 0 0 0 1px var(--panel-line);
+}
+
+.periods button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.period-span {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
 }
 
 .period-bar {
@@ -436,12 +543,137 @@ function tone(value: number): string {
   position: relative;
 }
 
+/* While a new result is on its way the old one greys out and blurs under the card that says so. */
 .result-body {
-  transition: opacity 200ms;
+  transition: opacity 200ms, filter 200ms;
 }
 
 .result-body.is-stale {
-  opacity: 0.55;
+  opacity: 0.6;
+  filter: grayscale(1) blur(3px);
+  pointer-events: none;
+}
+
+.analysing {
+  position: absolute;
+  z-index: 4;
+  top: 9rem;
+  left: 50%;
+  display: grid;
+  width: min(18rem, calc(100% - 2rem));
+  gap: 0.45rem;
+  translate: -50% 0;
+  border-radius: 16px;
+  background: var(--panel);
+  padding: 0.9rem 1rem;
+  box-shadow: inset 0 0 0 1px var(--panel-line), 0 24px 48px -20px rgb(0 0 0 / 0.5);
+}
+
+.analysing-enter-active,
+.analysing-leave-active {
+  transition: opacity 180ms, translate 180ms;
+}
+
+.analysing-enter-from,
+.analysing-leave-to {
+  opacity: 0;
+  translate: -50% 6px;
+}
+
+.analysing-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.analysing-spinner {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid var(--panel-line);
+  border-top-color: var(--color-lime);
+  border-radius: 999px;
+  animation: analysing-spin 700ms linear infinite;
+}
+
+@keyframes analysing-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.analysing-text {
+  font-size: 12.5px;
+  color: var(--panel-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.analysing-track {
+  position: relative;
+  overflow: hidden;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--panel-fill);
+}
+
+.analysing-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--color-lime);
+  animation: analysing-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes analysing-sweep {
+  from {
+    translate: -100% 0;
+  }
+
+  to {
+    translate: 250% 0;
+  }
+}
+
+.advanced-stats {
+  border-top: 1px solid var(--panel-line);
+  padding: 0.9rem 1rem;
+}
+
+.advanced-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin-top: 0.7rem;
+}
+
+.advanced-grid dt {
+  font-size: 12px;
+  color: var(--panel-soft);
+}
+
+.advanced-grid dd {
+  margin-top: 0.1rem;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.advanced-help {
+  margin-top: 0.15rem;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--panel-soft);
 }
 
 .side-split {
@@ -489,19 +721,6 @@ function tone(value: number): string {
   max-height: 18rem;
   overflow-y: auto;
   border-top: 1px solid var(--panel-line);
-}
-
-.loading {
-  position: absolute;
-  top: 3.2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: var(--panel-ink);
-  padding: 0.3rem 0.8rem;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--panel);
 }
 
 .action {
@@ -710,7 +929,8 @@ function tone(value: number): string {
 
 @media (prefers-reduced-motion: reduce) {
   .working-line,
-  .loading-dot,
+  .analysing-spinner,
+  .analysing-fill,
   .spinner {
     animation: none;
   }

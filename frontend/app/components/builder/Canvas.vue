@@ -85,15 +85,23 @@ function buildCards(): void {
     cards.push(card('offer', 'offer'))
     links.push(edge('market', 'offer', true))
   }
-  if (isAdvanced.value) {
-    cards.push(card('costs', 'costs'))
-    links.push(...sides.value.map(side => edge(`end-${side.id}`, 'costs')))
-  }
   nodes.value = cards
   edges.value = links
+  if (isAdvanced.value) showCosts(true)
 }
 
-watch(() => `${sides.value.map(side => side.id).join()} ${canOfferSide.value} ${isAdvanced.value}`, buildCards, { immediate: true })
+function showCosts(isShown: boolean): void {
+  nodes.value = nodes.value.filter(node => node.id !== 'costs')
+  edges.value = edges.value.filter(link => link.target !== 'costs')
+  if (!isShown) return
+  // It appears under the lowest card and glides into place with the others.
+  const lowest = Math.max(0, ...nodes.value.map(node => node.position.y))
+  nodes.value = [...nodes.value, { id: 'costs', type: 'costs', data: {}, position: { x: -CARD_WIDTH / 2, y: lowest }, dragHandle: '.card-grip' }]
+  edges.value = [...edges.value, ...sides.value.map(side => edge(`end-${side.id}`, 'costs'))]
+}
+
+watch(() => `${sides.value.map(side => side.id).join()} ${canOfferSide.value}`, buildCards, { immediate: true })
+watch(isAdvanced, showCosts)
 
 // Strategy and market sit centred; the lanes run side by side below, the offered side beside the only lane,
 // and in advanced mode the costs card closes the flow. When a card grows or shrinks, the ones below it glide
@@ -287,7 +295,7 @@ function describe(strategyName: string): void {
 }
 
 function rename(event: Event): void {
-  name.value = (event.target as HTMLInputElement).value
+  name.value = (event.target as HTMLTextAreaElement).value
 }
 
 // ---------- Markets ----------
@@ -364,7 +372,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
             <p class="card-kicker">
               Strategy
             </p>
-            <input class="name-input nodrag" :value="name" aria-label="Strategy name" placeholder="Name this strategy" @change="rename">
+            <textarea class="name-input nodrag" :value="name" rows="1" aria-label="Strategy name" placeholder="Name this strategy" @change="rename" @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()" />
             <div class="mt-3 flex flex-wrap gap-2">
               <button v-if="isAdvanced" type="button" class="pill-button nodrag" @click="emit('showJson')">
                 <UiIcon name="file-json" /> See the JSON
@@ -391,7 +399,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
                 <span v-for="symbol in document.instruments" :key="symbol" class="market-chip">
                   <CoinMark :symbol="symbol" />
                   {{ baseCoin(symbol) }}/USDT
-                  <button type="button" class="chip-remove" :aria-label="`Remove ${baseCoin(symbol)}/USDT`" @click="removeMarket(symbol)">
+                  <button type="button" class="chip-remove" v-tip="`Remove ${baseCoin(symbol)}/USDT`" @click="removeMarket(symbol)">
                     <UiIcon name="x" />
                   </button>
                 </span>
@@ -415,21 +423,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
               <p class="market-note">
                 {{ isFull ? `Up to ${MAX_INSTRUMENTS} markets: remove one to pick another` : 'The same rules are tested on each market you pick' }}
               </p>
-              <ul class="grid gap-0.5">
-                <li v-for="instrument in instruments" :key="instrument.symbol">
-                  <button
-                    type="button"
-                    class="market-choice"
-                    :class="{ 'is-on': document.instruments.includes(instrument.symbol) }"
-                    :aria-pressed="document.instruments.includes(instrument.symbol)"
-                    :disabled="isFull && !document.instruments.includes(instrument.symbol)"
-                    @click="toggleMarket(instrument.symbol)"
-                  >
-                    <CoinMark :symbol="instrument.symbol" /> {{ instrument.label }}
-                    <UiIcon v-if="document.instruments.includes(instrument.symbol)" name="check" class="market-check" />
-                  </button>
-                </li>
-              </ul>
+              <BuilderMarketList :instruments="instruments" :chosen="document.instruments" :is-disabled="symbol => isFull && !document.instruments.includes(symbol)" @pick="toggleMarket" />
             </BuilderPopover>
             <div v-if="hasMarket" class="pace">
               <p class="field-label">
@@ -506,12 +500,13 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
             </p>
             <dl class="costs">
               <div><dt>Position size</dt><dd>{{ document.positionSizePct }}% of the account</dd></div>
+              <div><dt>Leverage</dt><dd>{{ document.execution.leverage === 1 ? 'None' : `${document.execution.leverage}×` }}</dd></div>
               <div><dt>Exchange fee</dt><dd>{{ document.execution.commission_pct }}% a buy or a sell</dd></div>
               <div><dt>Slippage</dt><dd>{{ document.execution.slippage_bps }} bps a fill</dd></div>
               <div><dt>Starting cash</dt><dd>$10,000</dd></div>
             </dl>
             <p class="card-note">
-              <UiIcon name="sliders-horizontal" /> Change these under the result, in "How it is counted".
+              <UiIcon name="sliders-horizontal" /> {{ isAdvanced ? 'Change these under the result, in "How it is counted".' : 'Switch to Advanced to change these.' }}
             </p>
           </div>
         </BuilderCanvasCard>
@@ -538,13 +533,13 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
       </Panel>
 
       <Panel position="bottom-left" class="zoom">
-        <button type="button" aria-label="Zoom in" @click="zoomIn({ duration: 200 })">
+        <button type="button" v-tip="'Zoom in'" @click="zoomIn({ duration: 200 })">
           <UiIcon name="plus" />
         </button>
-        <button type="button" aria-label="Zoom out" @click="zoomOut({ duration: 200 })">
+        <button type="button" v-tip="'Zoom out'" @click="zoomOut({ duration: 200 })">
           <span class="minus" />
         </button>
-        <button type="button" aria-label="Fit the whole strategy" @click="fitView({ padding: 0.2, maxZoom: 1, duration: 300 })">
+        <button type="button" v-tip="'Fit the whole strategy'" @click="fitView({ padding: 0.2, maxZoom: 1, duration: 300 })">
           <UiIcon name="maximize-2" />
         </button>
       </Panel>
@@ -589,7 +584,12 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 }
 
 .name-input {
+  display: block;
   width: 100%;
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  line-height: 1.25;
   margin-top: 0.2rem;
   border-radius: 8px;
   background: transparent;
@@ -691,7 +691,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 
 /* While a market is in hand the drop area lights up; once it is over the area, the market shows inside it,
    see-through, in place of what is there, so it is clear where it lands. */
-:global(body:has(> .sortable-fallback .coin-mark) .market-drop) {
+:global(body[data-dragging="market"] .market-drop) {
   border: 1.5px dashed var(--accent-ink);
   background: color-mix(in srgb, var(--accent-ink) 8%, transparent);
 }
@@ -710,36 +710,6 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 
 .drop-text {
   color: var(--panel-soft);
-}
-
-.market-choice {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 0.55rem;
-  border-radius: 8px;
-  padding: 0.4rem 0.55rem;
-  text-align: left;
-  font-weight: 600;
-}
-
-.market-choice:hover:not(:disabled),
-.market-choice.is-on {
-  background: var(--panel-fill);
-}
-
-.market-choice:disabled {
-  opacity: 0.45;
-}
-
-.market-choice:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-
-.market-check {
-  margin-left: auto;
-  color: var(--accent-ink);
 }
 
 .market-note {
@@ -770,7 +740,9 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 
 .segmented,
 .direction {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   gap: 2px;
   border-radius: 10px;
   background: var(--panel-fill);
@@ -806,7 +778,7 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 }
 
 /* While a limit is in hand every exit card's limit row lights up; the library's own entry is not shown in it. */
-:global(body:has(> .sortable-fallback.limit) .risk) {
+:global(body[data-dragging="limit"] .risk) {
   outline: 1.5px dashed var(--accent-ink);
   outline-offset: 4px;
   background: color-mix(in srgb, var(--accent-ink) 8%, transparent);
@@ -876,13 +848,13 @@ defineExpose({ fitView: () => fitView({ padding: 0.2, maxZoom: 1, duration: 300 
 }
 
 .lane-badge--long {
-  background: color-mix(in srgb, var(--gain-ink) 16%, transparent);
-  color: var(--gain-ink);
+  background: #00796b;
+  color: #ffffff;
 }
 
 .lane-badge--short {
-  background: color-mix(in srgb, var(--loss-ink) 16%, transparent);
-  color: var(--loss-ink);
+  background: #d32f2f;
+  color: #ffffff;
 }
 
 .lane-remove {

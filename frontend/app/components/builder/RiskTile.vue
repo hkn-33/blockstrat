@@ -61,7 +61,7 @@ function onInput(event: Event): void {
   <div v-if="value !== null" class="grid gap-1">
     <div class="flex items-center gap-1">
       <RuleTile :subject="text.name" :operator="text.operator" :value="text.tileValue(value)" kind="risk" editable :invalid="Boolean(problem)" @edit="edit" />
-      <button type="button" class="remove" :aria-label="`Remove the ${text.name.toLowerCase()}`" @click="setValue(null)">
+      <button type="button" class="remove" v-tip="`Remove the ${text.name.toLowerCase()}`" @click="setValue(null)">
         <UiIcon name="x" />
       </button>
     </div>

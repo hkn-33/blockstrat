@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ExecutionPreset, InstrumentInfo, StrategyDraft } from '~/types/api'
 import type { Item, LimitKind } from '~/utils/strategyDocument'
-import type { PanelWidths } from '~/utils/strategyFiles'
+import type { Layout, PanelWidths } from '~/utils/strategyFiles'
+import type { BacktestPeriod } from '~/composables/useApi'
 
 // The builder in three columns: the block library on the left, the strategy as cards on a canvas in the
 // middle, and the result with the assistant on the right. A first visit starts empty and guided.
@@ -12,7 +13,9 @@ const EXAMPLE = STRATEGY_TEMPLATES[0]!
 const DEFAULT_EXECUTION = EXAMPLE.strategy.execution
 
 const api = useApi()
-const backtest = useBacktest()
+// How much of the latest history the result covers; a year by default, the stretch most people judge by.
+const period = ref<BacktestPeriod>('1y')
+const backtest = useBacktest(period)
 const editor = createStrategyEditor(emptyDocument(DEFAULT_EXECUTION))
 provide(STRATEGY_EDITOR, editor)
 const { isAdvanced } = useBuilderMode()
@@ -27,6 +30,48 @@ const rightTab = ref<'result' | 'assistant' | 'json'>('result')
 const mobileTab = ref<'library' | 'strategy' | 'result'>('strategy')
 // The middle column is the canvas of blocks, or a chart to mark trades on and get matching strategies.
 const centreView = ref<'blocks' | 'chart'>('blocks')
+// The side columns belong to building with blocks. Going to the chart they slide out to their sides first,
+// then the chart takes the whole width and comes into focus; coming back, the canvas comes into focus and
+// the columns slide back in. The switch itself never moves.
+// Going to the chart: the columns slide away and the canvas fades where it stands; part way through, the
+// chart starts to come into focus over the whole width, so one view dissolves into the other with no empty
+// moment; once the columns are gone the grid closes to the one column the chart already fills.
+const SIDES_OUT_MS = 300
+const CHART_IN_AFTER_MS = 130
+const CANVAS_OUT_MS = 260
+const areSidesTucked = ref(false)
+const isCanvasLeaving = ref(false)
+const isMarking = ref(false)
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+function nextFrame(): Promise<void> {
+  return new Promise(resolve => requestAnimationFrame(() => resolve()))
+}
+
+async function showView(view: 'blocks' | 'chart'): Promise<void> {
+  if (view === centreView.value) return
+  const isReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (view === 'chart') {
+    areSidesTucked.value = true
+    isCanvasLeaving.value = true
+    if (!isReduced) await wait(CHART_IN_AFTER_MS)
+    centreView.value = 'chart'
+    if (!isReduced) await wait(SIDES_OUT_MS - CHART_IN_AFTER_MS)
+    isMarking.value = true
+    if (!isReduced) await wait(CANVAS_OUT_MS)
+    isCanvasLeaving.value = false
+    return
+  }
+  centreView.value = 'blocks'
+  isMarking.value = false
+  // The columns come back in their tucked place, then slide in from it.
+  await nextTick()
+  await nextFrame()
+  areSidesTucked.value = false
+}
 // The canvas waits for the saved strategy and name, so a returning user never sees the welcome flash.
 const isReady = ref(false)
 
@@ -46,7 +91,46 @@ watch(draft, (current) => {
 
 watch(name, saveCurrentName)
 
+// ---------- Saving to the strategy library ----------
+// Every strategy is kept in the browser under its name, so there can be many. It is saved every half minute
+// when it has changed, and at once before another strategy takes its place or the page is closed.
+const SAVE_EVERY_MS = 30_000
+const savedAs = ref<string | null>(null)
+const hasUnsavedChanges = ref(false)
+const lastSavedAt = ref<number | null>(null)
+let saveTimer: ReturnType<typeof setInterval> | undefined
+// What was saved last, so a change undone, or the name the save itself gave, is not a change to save.
+let lastSaved = ''
+
+function snapshot(): string {
+  return JSON.stringify([name.value, draft.value])
+}
+
+watch([draft, name], () => {
+  if (isReady.value && !replay.isRunning.value) hasUnsavedChanges.value = snapshot() !== lastSaved
+})
+
+function saveNow(): void {
+  if (!hasUnsavedChanges.value) return
+  hasUnsavedChanges.value = false
+  // An empty strategy is not worth a place in the list.
+  if (!draft.value.sides.some(side => side.entry !== null || side.exit !== null)) return
+  const saved = autosaved(loadLibrary(), savedAs.value, name.value, draft.value)
+  saveLibrary(saved.library)
+  savedAs.value = saved.savedAs
+  if (saved.name !== name.value) name.value = saved.name
+  lastSaved = snapshot()
+  lastSavedAt.value = Date.now()
+}
+
+/** Before another strategy takes the canvas: the current one is saved, and the next one saved on its own. */
+function switchStrategy(nextSavedAs: string | null): void {
+  saveNow()
+  savedAs.value = nextSavedAs
+}
+
 function open(strategy: StrategyDraft, strategyName: string): void {
+  switchStrategy(strategyName in loadLibrary() ? strategyName : null)
   editor.replace(documentFromDraft(strategy))
   name.value = strategyName
 }
@@ -55,14 +139,36 @@ function open(strategy: StrategyDraft, strategyName: string): void {
 async function build(strategy: StrategyDraft, strategyName: string): Promise<void> {
   name.value = strategyName
   mobileTab.value = 'strategy'
-  centreView.value = 'blocks'
+  await showView('blocks')
   // The canvas was hidden while the chart was up; it needs a frame to measure itself again.
   await nextTick()
   await replay.play(documentFromDraft(strategy))
   rightTab.value = 'result'
 }
 
+// A found strategy does not silently replace one already being built: the user keeps it or replaces it.
+const pendingBuild = ref<{ strategy: StrategyDraft, name: string } | null>(null)
+
+function askBuild(strategy: StrategyDraft, strategyName: string): void {
+  const isBuilding = draft.value.sides.some(side => side.entry !== null || side.exit !== null)
+  if (!isBuilding) {
+    build(strategy, strategyName)
+    return
+  }
+  pendingBuild.value = { strategy, name: strategyName }
+}
+
+function finishBuild(choice: 'replace' | 'keep'): void {
+  const chosen = pendingBuild.value
+  if (!chosen) return
+  // Kept: the current one is saved where it is and the new one gets its own place. Replaced: the new one takes
+  // the current one's place.
+  if (choice === 'keep') switchStrategy(null)
+  build(chosen.strategy, chosen.name)
+}
+
 function useExample(): void {
+  switchStrategy(null)
   build(EXAMPLE.strategy, EXAMPLE.name)
 }
 
@@ -72,6 +178,7 @@ watch(isAdvanced, (isOn) => {
 })
 
 function startNew(): void {
+  switchStrategy(null)
   editor.replace(emptyDocument(DEFAULT_EXECUTION))
   name.value = ''
 }
@@ -113,8 +220,17 @@ const MINIMUM_CANVAS_WIDTH = 380
 const KEY_STEP = 24
 type SidePanel = 'library' | 'result'
 
-const panelWidths = ref<PanelWidths>({ library: null, result: null })
+const DEFAULT_WIDTHS: PanelWidths = { library: null, result: null }
+const customWidths = ref<PanelWidths>(DEFAULT_WIDTHS)
+const layout = ref<Layout>('custom')
+const hasCustomLayout = computed(() => customWidths.value.library !== null || customWidths.value.result !== null)
+const panelWidths = computed(() => (layout.value === 'custom' ? customWidths.value : DEFAULT_WIDTHS))
 const workspace = ref<HTMLElement | null>(null)
+
+function setLayout(chosen: Layout): void {
+  layout.value = chosen
+  saveLayout(chosen)
+}
 const workspaceStyle = computed(() => ({
   '--library-width': panelWidths.value.library === null ? undefined : `${panelWidths.value.library}px`,
   '--result-width': panelWidths.value.result === null ? undefined : `${panelWidths.value.result}px`,
@@ -127,31 +243,32 @@ function columnWidth(panel: SidePanel): number {
 function setPanelWidth(panel: SidePanel, width: number): void {
   const other = columnWidth(panel === 'library' ? 'result' : 'library')
   const widest = (workspace.value?.clientWidth ?? window.innerWidth) - other - MINIMUM_CANVAS_WIDTH
-  panelWidths.value = { ...panelWidths.value, [panel]: Math.round(Math.max(MINIMUM_SIDE_WIDTH, Math.min(width, widest))) }
-  savePanelWidths(panelWidths.value)
+  // Dragging a column makes the layout the user's own.
+  customWidths.value = { ...panelWidths.value, [panel]: Math.round(Math.max(MINIMUM_SIDE_WIDTH, Math.min(width, widest))) }
+  savePanelWidths(customWidths.value)
+  if (layout.value !== 'custom') setLayout('custom')
 }
 
 function resetPanelWidth(panel: SidePanel): void {
-  panelWidths.value = { ...panelWidths.value, [panel]: null }
-  savePanelWidths(panelWidths.value)
+  customWidths.value = { ...customWidths.value, [panel]: null }
+  savePanelWidths(customWidths.value)
 }
 
 function startResize(panel: SidePanel, event: PointerEvent): void {
-  const divider = event.currentTarget as HTMLElement
   const startX = event.clientX
   const startWidth = columnWidth(panel)
   // The library grows to the right, the result column to the left.
   const direction = panel === 'library' ? 1 : -1
-  divider.setPointerCapture(event.pointerId)
+  // Followed on the whole window, so a fast drag that leaves the thin divider keeps resizing.
   const onMove = (move: PointerEvent): void => setPanelWidth(panel, startWidth + direction * (move.clientX - startX))
   const onEnd = (): void => {
-    divider.removeEventListener('pointermove', onMove)
-    divider.removeEventListener('pointerup', onEnd)
-    divider.removeEventListener('pointercancel', onEnd)
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onEnd)
+    window.removeEventListener('pointercancel', onEnd)
   }
-  divider.addEventListener('pointermove', onMove)
-  divider.addEventListener('pointerup', onEnd)
-  divider.addEventListener('pointercancel', onEnd)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onEnd)
+  window.addEventListener('pointercancel', onEnd)
 }
 
 function resizeByKey(panel: SidePanel, event: KeyboardEvent): void {
@@ -194,14 +311,37 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
+// What is being dragged, on <body> while it is: Sortable carries the block's copy as a child of <body>, and
+// the drop areas light up for it. A body:has() selector would say the same, but it makes the browser re-check
+// the whole page on every change anywhere, which made the charts stutter.
+let dragWatcher: MutationObserver | undefined
+
+function markDragging(): void {
+  const carried = document.querySelector('body > .sortable-fallback')
+  if (!carried) {
+    delete document.body.dataset.dragging
+    return
+  }
+  if (carried.querySelector('.coin-mark')) document.body.dataset.dragging = 'market'
+  else if (carried.classList.contains('limit')) document.body.dataset.dragging = 'limit'
+  else document.body.dataset.dragging = 'condition'
+}
+
 onMounted(async () => {
+  dragWatcher = new MutationObserver(markDragging)
+  dragWatcher.observe(document.body, { childList: true })
   window.addEventListener('keydown', onKeydown)
-  panelWidths.value = loadPanelWidths()
+  customWidths.value = loadPanelWidths()
+  layout.value = loadLayout()
   const start = startingPoint()
   // The first document is not an edit, so it gets no undo step.
   if (start.strategy) editor.document.value = documentFromDraft(start.strategy)
   name.value = start.name
   isReady.value = true
+  savedAs.value = name.value && name.value in loadLibrary() ? name.value : null
+  lastSaved = snapshot()
+  saveTimer = setInterval(saveNow, SAVE_EVERY_MS)
+  window.addEventListener('pagehide', saveNow)
   if (start.strategy) backtest.schedule(draft.value)
   try {
     const [instrumentList, executionPresets] = await Promise.all([api.instruments(), api.executionPresets()])
@@ -213,12 +353,18 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  dragWatcher?.disconnect()
+  clearInterval(saveTimer)
+  window.removeEventListener('pagehide', saveNow)
+  saveNow()
+})
 </script>
 
 <template>
   <div class="app builder">
-    <BuilderToolbar :draft="draft" :name="name" @open="open" @start-new="startNew" />
+    <BuilderToolbar v-model:name="name" :draft="draft" :has-unsaved-changes="hasUnsavedChanges" :last-saved-at="lastSavedAt" @save-now="saveNow" :layout="layout" :has-custom-layout="hasCustomLayout" @update:layout="setLayout" @open="open" @start-new="startNew" />
 
     <p v-if="notice" class="notice" role="alert">
       {{ notice }}
@@ -227,13 +373,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </button>
     </p>
 
-    <div class="mobile-tabs" role="tablist" aria-label="Builder views">
+    <div v-show="centreView === 'blocks'" class="mobile-tabs" role="tablist" aria-label="Builder views">
       <button v-for="tab in (['library', 'strategy', 'result'] as const)" :key="tab" type="button" role="tab" :aria-selected="mobileTab === tab" :class="{ 'is-on': mobileTab === tab }" @click="mobileTab = tab">
         {{ tab === 'library' ? 'Blocks' : tab === 'strategy' ? 'Strategy' : 'Result' }}
       </button>
     </div>
 
-    <main ref="workspace" class="workspace" :data-tab="mobileTab" :style="workspaceStyle">
+    <main ref="workspace" class="workspace" :class="{ 'is-marking': isMarking, 'are-sides-tucked': areSidesTucked, 'is-canvas-leaving': isCanvasLeaving }" :data-tab="mobileTab" :style="workspaceStyle">
       <aside class="column column--library" aria-label="Blocks">
         <BuilderLibrary :instruments="instruments" :chosen="editor.document.value.instruments" :step="step" :sides="sideChoices" :side-id="targetSide.id" @update:side-id="chosenSideId = $event" @add-condition="addCondition" @toggle-market="toggleMarket" @add-risk="addRisk" />
       </aside>
@@ -241,16 +387,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <div class="divider divider--library" role="separator" aria-orientation="vertical" aria-label="Width of the blocks column: drag, or use the arrow keys" tabindex="0" @pointerdown.prevent="startResize('library', $event)" @dblclick="resetPanelWidth('library')" @keydown="resizeByKey('library', $event)" />
 
       <section class="column column--canvas" aria-label="Strategy">
-        <div class="view-tabs" role="tablist" aria-label="How to build the strategy">
-          <button type="button" role="tab" :aria-selected="centreView === 'blocks'" :class="{ 'is-on': centreView === 'blocks' }" @click="centreView = 'blocks'">
+        <div class="view-tabs" :class="{ 'is-chart': areSidesTucked }" role="tablist" aria-label="How to build the strategy">
+          <span class="view-pill" aria-hidden="true" />
+          <button type="button" role="tab" :aria-selected="!areSidesTucked" :class="{ 'is-on': !areSidesTucked }" @click="showView('blocks')">
             <UiIcon name="layers" /> Build with blocks
           </button>
-          <button type="button" role="tab" :aria-selected="centreView === 'chart'" :class="{ 'is-on': centreView === 'chart' }" @click="centreView = 'chart'">
+          <button type="button" role="tab" :aria-selected="areSidesTucked" :class="{ 'is-on': areSidesTucked }" @click="showView('chart')">
             <UiIcon name="chart-candlestick" /> Mark on a chart
           </button>
         </div>
-        <BuilderMarkView v-if="centreView === 'chart'" class="centre-view" :instruments="instruments" :instrument="editor.document.value.instruments[0] ?? null" :timeframe="editor.document.value.timeframe" @build="build" />
-        <BuilderCanvas v-if="isReady" v-show="centreView === 'blocks'" ref="canvas" class="centre-view" v-model:name="name" :instruments="instruments" @build="build" @show-json="rightTab = 'json'; mobileTab = 'result'" @use-example="useExample" @start-new="startNew" @describe="rightTab = 'assistant'; mobileTab = 'result'" @open="open" />
+        <Transition name="chart-swap">
+          <BuilderMarkView v-if="isReady" v-show="centreView === 'chart'" class="centre-view" :instruments="instruments" :instrument="editor.document.value.instruments[0] ?? null" :timeframe="editor.document.value.timeframe" :runs="backtest.runs.value" @build="askBuild" />
+        </Transition>
+        <BuilderBuildChoice v-if="pendingBuild" :current-name="name" :new-name="pendingBuild.name" @choose="finishBuild" @close="pendingBuild = null" />
+        <Transition name="canvas-swap">
+          <BuilderCanvas v-if="isReady" v-show="centreView === 'blocks'" ref="canvas" class="centre-view" v-model:name="name" :instruments="instruments" @build="build" @show-json="rightTab = 'json'; mobileTab = 'result'" @use-example="useExample" @start-new="startNew" @describe="rightTab = 'assistant'; mobileTab = 'result'" @open="open" />
+        </Transition>
       </section>
 
       <div class="divider divider--result" role="separator" aria-orientation="vertical" aria-label="Width of the result column: drag, or use the arrow keys" tabindex="0" @pointerdown.prevent="startResize('result', $event)" @dblclick="resetPanelWidth('result')" @keydown="resizeByKey('result', $event)" />
@@ -258,13 +410,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <section class="column column--result" aria-label="Result and assistant">
         <div class="right-tabs" role="tablist" aria-label="Result, assistant and JSON">
           <button type="button" role="tab" :aria-selected="rightTab === 'result'" :class="{ 'is-on': rightTab === 'result' }" @click="rightTab = 'result'">
-            Result
+            <UiIcon name="chart-line" /> Result
           </button>
           <button type="button" role="tab" :aria-selected="rightTab === 'assistant'" :class="{ 'is-on': rightTab === 'assistant' }" @click="rightTab = 'assistant'">
             <UiIcon name="sparkles" /> Assistant
           </button>
           <button v-if="isAdvanced" type="button" role="tab" :aria-selected="rightTab === 'json'" :class="{ 'is-on': rightTab === 'json' }" @click="rightTab = 'json'">
-            JSON
+            <UiIcon name="code" /> Code
           </button>
         </div>
         <div class="right-body">
@@ -277,15 +429,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
               :checklist="checklist"
               :problem-count="problemCount"
               :commission-pct="editor.document.value.execution.commission_pct"
+              :period="period"
+              :strategy="draft"
+              @update:period="period = $event; retry()"
               @retry="retry"
             />
-            <BuilderTestSettings :presets="presets" />
+            <BuilderTestSettings v-if="isAdvanced" :presets="presets" />
             <p class="disclaimer">
               Simulations on historical Binance prices, not investment advice. Past results do not promise future ones.
             </p>
           </div>
           <BuilderAssistantPanel v-show="rightTab === 'assistant'" :current-strategy="draft" @apply="build($event, name || 'From the assistant')" @close="rightTab = 'result'" />
-          <BuilderJsonPanel v-show="rightTab === 'json'" :strategy="draft" @close="rightTab = 'result'" />
+          <BuilderJsonPanel v-show="rightTab === 'json'" :strategy="draft" :name="name" @close="rightTab = 'result'" />
         </div>
       </section>
     </main>
@@ -320,10 +475,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   --library-column: var(--library-width, clamp(18rem, 20vw, 21rem));
   --result-column: var(--result-width, clamp(24rem, 28vw, 28rem));
   position: relative;
+  /* The side columns slide out past its edges. */
+  overflow: hidden;
+  /* The same dotted board as the canvas lies under both views and under the columns, so nothing changes
+     colour when the view changes. */
+  background-color: var(--board-bg);
+  background-image: radial-gradient(var(--canvas-dot) 1.2px, transparent 1.3px);
+  background-size: 22px 22px;
   display: grid;
   min-height: 0;
   flex: 1;
   grid-template-columns: var(--library-column) minmax(0, 1fr) var(--result-column);
+}
+
+/* Marking trades on a chart is a view of its own: the blocks and the result belong to building with blocks,
+   so the chart takes the whole width. They stay mounted, so nothing is lost on the way back. */
+.workspace.is-marking {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace.is-marking > .column:not(.column--canvas),
+.workspace.is-marking > .divider {
+  display: none;
 }
 
 /* A divider is a thin strip over the border between two columns, wide enough to grab. */
@@ -370,32 +543,166 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   flex-direction: column;
 }
 
+/* The switch sits at the middle of the whole workspace, so it stays put while the columns come and go.
+   The canvas column keeps its room. */
+.column--canvas {
+  padding-top: 3.1rem;
+}
+
 .view-tabs {
-  display: flex;
-  gap: 2px;
-  align-self: center;
-  margin: 0.5rem;
+  position: absolute;
+  z-index: 6;
+  top: 0.5rem;
+  left: 50%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  translate: -50% 0;
   border-radius: 10px;
   background: var(--panel-fill);
   padding: 3px;
 }
 
+/* One pill under both buttons slides to the chosen one. */
+.view-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 7px;
+  background: var(--color-lime);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.view-tabs.is-chart .view-pill {
+  transform: translateX(100%);
+}
+
 .view-tabs button {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.4rem;
   border-radius: 7px;
-  padding: 0.35rem 0.8rem;
+  padding: 0.35rem 0.9rem;
   font-size: 13.5px;
   font-weight: 700;
+  white-space: nowrap;
   color: var(--panel-soft);
-  transition: background-color 140ms, color 140ms;
+  transition: color 200ms;
 }
 
 .view-tabs button.is-on {
-  background: var(--panel);
-  color: var(--panel-ink);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15), inset 0 0 0 1px var(--panel-line);
+  color: var(--color-ink);
+}
+
+/* Going to the chart the columns leave quickly to their own sides; coming back they arrive a little slower. */
+.column--library,
+.column--result {
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1), opacity 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.are-sides-tucked > .column--library,
+.are-sides-tucked > .column--result {
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 300ms cubic-bezier(0.4, 0, 1, 1), opacity 260ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.are-sides-tucked > .column--library {
+  transform: translateX(-100%);
+}
+
+.are-sides-tucked > .column--result {
+  transform: translateX(100%);
+}
+
+.are-sides-tucked > .divider {
+  display: none;
+}
+
+/* A view comes into focus: from a little lower, a little smaller and soft, to its place. */
+.chart-swap-enter-active,
+.canvas-swap-enter-active {
+  transition: opacity 560ms cubic-bezier(0.22, 1, 0.36, 1), transform 640ms cubic-bezier(0.22, 1, 0.36, 1), filter 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chart-swap-enter-from,
+.canvas-swap-enter-from {
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  filter: blur(8px);
+}
+
+/* The chart, coming and going, lies over the whole workspace, whatever the columns are doing under it, so
+   it never changes size on the way. */
+.chart-swap-enter-active,
+.chart-swap-leave-active {
+  position: absolute;
+  z-index: 2;
+  inset: 3.1rem 0 0;
+}
+
+.chart-swap-leave-active {
+  transition: opacity 240ms cubic-bezier(0.4, 0, 1, 1), filter 240ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.chart-swap-leave-to {
+  opacity: 0;
+  filter: blur(6px);
+}
+
+/* The canvas leaves where it stands; it has already begun to fade (below). */
+.canvas-swap-leave-active {
+  transition: opacity 200ms cubic-bezier(0.4, 0, 1, 1) !important;
+}
+
+.canvas-swap-leave-to {
+  opacity: 0;
+}
+
+/* Going to the chart, the canvas softens and fades where it stands while the columns slide away. */
+.is-canvas-leaving .column--canvas > .canvas {
+  opacity: 0;
+  filter: blur(6px);
+  transform: scale(0.985);
+  transition: opacity 260ms cubic-bezier(0.4, 0, 1, 1), filter 260ms cubic-bezier(0.4, 0, 1, 1), transform 300ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-pill,
+  .column--library,
+  .column--result,
+  .are-sides-tucked > .column--library,
+  .are-sides-tucked > .column--result {
+    transition: none;
+  }
+
+  .are-sides-tucked > .column--library,
+  .are-sides-tucked > .column--result {
+    transform: none;
+  }
+
+  .chart-swap-enter-active,
+  .canvas-swap-enter-active,
+  .chart-swap-leave-active {
+    transition: opacity 120ms linear;
+  }
+
+  .chart-swap-enter-from,
+  .canvas-swap-enter-from,
+  .chart-swap-leave-to {
+    transform: none;
+    filter: none;
+  }
+
+  .is-canvas-leaving .column--canvas > .canvas {
+    filter: none;
+    transform: none;
+    transition: opacity 120ms linear;
+  }
 }
 
 .view-tabs button:focus-visible {
@@ -418,14 +725,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .column--library {
   overflow-x: hidden;
   overflow-y: auto;
+  /* Room for the scrollbar is kept even when nothing scrolls, so opening an entry never narrows the column. */
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   border-right: 1px solid var(--panel-line);
+  background: var(--panel);
 }
 
 .column--result {
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--panel-line);
+  background: var(--panel);
 }
 
 .right-tabs {
@@ -518,6 +829,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
   .divider {
     display: none;
+  }
+
+  .workspace.is-marking[data-tab] > .column.column--canvas {
+    display: flex;
   }
 
   .workspace[data-tab="library"] .column:not(.column--library),

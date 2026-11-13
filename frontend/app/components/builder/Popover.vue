@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // A small panel anchored under the control that opened it: it grows out of that control and shrinks back
 // into it, closes on Escape or a click outside, and returns focus to the control.
-const props = defineProps<{ anchor: HTMLElement | null, label: string }>()
+const props = defineProps<{ anchor: HTMLElement | null, label: string, closeOnLeave?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const panel = ref<HTMLDivElement | null>(null)
@@ -27,6 +27,19 @@ function onPointerDown(event: PointerEvent): void {
   const target = event.target as Node
   if (panel.value?.contains(target) || props.anchor?.contains(target)) return
   emit('close')
+}
+
+// An editor that keeps a draft can close once the pointer has clearly moved on, this far from it and its control.
+const LEAVE_DISTANCE = 140
+
+function onPointerMove(event: PointerEvent): void {
+  if (!props.closeOnLeave || !panel.value) return
+  const boxes = [panel.value.getBoundingClientRect(), props.anchor?.getBoundingClientRect()].filter(box => box !== undefined)
+  const distance = Math.min(...boxes.map(box => Math.hypot(
+    Math.max(box.left - event.clientX, 0, event.clientX - box.right),
+    Math.max(box.top - event.clientY, 0, event.clientY - box.bottom),
+  )))
+  if (distance > LEAVE_DISTANCE) emit('close')
 }
 
 function onKeydown(event: KeyboardEvent): void {
@@ -62,6 +75,7 @@ onMounted(async () => {
   followFrame = requestAnimationFrame(follow)
   panel.value?.querySelector<HTMLElement>('input, select, button')?.focus()
   document.addEventListener('pointerdown', onPointerDown, true)
+  document.addEventListener('pointermove', onPointerMove)
   window.addEventListener('resize', place)
   window.addEventListener('scroll', place, true)
 })
@@ -69,6 +83,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(followFrame)
   document.removeEventListener('pointerdown', onPointerDown, true)
+  document.removeEventListener('pointermove', onPointerMove)
   window.removeEventListener('resize', place)
   window.removeEventListener('scroll', place, true)
 })

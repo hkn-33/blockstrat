@@ -10,7 +10,11 @@ withDefaults(defineProps<{
   kind?: 'indicator' | 'risk'
   editable?: boolean
   invalid?: boolean
-}>(), { kind: 'indicator', editable: false, invalid: false })
+  /** Parts with an edit that was not saved: they keep their saved text and light up until saved. */
+  unsaved?: TilePart[]
+  /** The subject's indicator glyph; a plain dot without one. */
+  icon?: string
+}>(), { kind: 'indicator', editable: false, invalid: false, unsaved: () => [], icon: undefined })
 
 const emit = defineEmits<{ edit: [part: TilePart, anchor: HTMLElement] }>()
 
@@ -22,12 +26,12 @@ function open(part: TilePart, event: MouseEvent): void {
 <template>
   <span class="tile" :class="[`tile--${kind}`, { 'is-editable': editable, 'is-invalid': invalid }]">
     <template v-if="editable">
-      <button type="button" class="segment segment--subject" @click="open('left', $event)"><span class="dot" />{{ subject }}</button>
+      <button type="button" class="segment segment--subject" :class="{ 'is-unsaved': unsaved.includes('left') }" :title="unsaved.includes('left') ? 'Changed but not saved: click to finish' : undefined" @click="open('left', $event)"><UiIcon v-if="icon" :name="icon" class="subject-icon" /><span v-else class="dot" />{{ subject }}</button>
       <button type="button" class="segment segment--operator" @click="open('operator', $event)">{{ operator }}</button>
-      <button type="button" class="segment segment--value" @click="open('right', $event)">{{ value }}</button>
+      <button type="button" class="segment segment--value" :class="{ 'is-unsaved': unsaved.includes('right') }" :title="unsaved.includes('right') ? 'Changed but not saved: click to finish' : undefined" @click="open('right', $event)">{{ value }}</button>
     </template>
     <template v-else>
-      <span class="segment segment--subject"><span class="dot" />{{ subject }}</span>
+      <span class="segment segment--subject"><UiIcon v-if="icon" :name="icon" class="subject-icon" /><span v-else class="dot" />{{ subject }}</span>
       <span class="segment segment--operator">{{ operator }}</span>
       <span class="segment segment--value">{{ value }}</span>
     </template>
@@ -70,6 +74,11 @@ function open(part: TilePart, event: MouseEvent): void {
   font-weight: 700;
 }
 
+.segment.is-unsaved {
+  background: color-mix(in srgb, #f0a020 20%, transparent);
+  box-shadow: inset 0 -2px 0 #f0a020;
+}
+
 .segment--operator {
   white-space: nowrap;
   color: var(--panel-soft);
@@ -101,6 +110,13 @@ function open(part: TilePart, event: MouseEvent): void {
 .is-editable .segment:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
+}
+
+.subject-icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  color: var(--color-indicator);
 }
 
 .dot {

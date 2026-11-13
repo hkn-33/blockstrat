@@ -36,8 +36,6 @@ defineProps<{ name: string, detail?: string, icon?: string }>()
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
 }
 
 /* The reading changes under the crosshair on every move, so it never wraps and never changes width:

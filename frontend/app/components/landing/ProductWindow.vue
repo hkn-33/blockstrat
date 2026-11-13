@@ -245,8 +245,6 @@ onBeforeUnmount(() => {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
 }
 
 .chart-col {

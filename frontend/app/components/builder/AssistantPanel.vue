@@ -111,7 +111,7 @@ function onKeydown(event: KeyboardEvent): void {
     <div class="side-head">
       <img src="/brand-icons/gemini.svg" alt="" class="h-5 w-5">
       <span class="font-bold">Strategy assistant</span>
-      <button type="button" class="close" aria-label="Close the assistant" @click="emit('close')">
+      <button type="button" class="close" v-tip="'Close the assistant'" @click="emit('close')">
         <UiIcon name="x" />
       </button>
     </div>
@@ -172,7 +172,7 @@ function onKeydown(event: KeyboardEvent): void {
     <form class="composer" @submit.prevent="send()">
       <label class="sr-only" for="assistant-input">Describe a strategy</label>
       <textarea id="assistant-input" ref="inputField" v-model="input" rows="2" :maxlength="MAX_MESSAGE_LENGTH" placeholder="Describe a strategy, or paste one" @keydown="onKeydown" />
-      <button type="submit" class="send" :disabled="!input.trim() || isThinking" aria-label="Send">
+      <button type="submit" class="send" :disabled="!input.trim() || isThinking" v-tip="'Send'">
         <UiIcon name="arrow-up" />
       </button>
     </form>
