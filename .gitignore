@@ -3,6 +3,9 @@ backend/.venv/
 __pycache__/
 .pytest_cache/
 
+# Node (a test runner started from the backend folder leaves its cache here)
+node_modules/
+
 # Cached market data (downloaded from Binance at runtime)
 backend/data/
 
