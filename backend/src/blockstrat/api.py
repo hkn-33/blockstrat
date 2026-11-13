@@ -141,7 +141,7 @@ def create_app(
         try:
             # Only the main instrument is tested; the frontend sends one request per extra instrument (ADR 0004).
             bars = market_data.bars(strategy.instrument, strategy.timeframe)
-            return ResultResponse(result=run_backtest(strategy, bars, request.mode))
+            return ResultResponse(result=run_backtest(strategy, bars, request.mode, request.period))
         except UnknownInstrumentError as error:
             raise HTTPException(status_code=422, detail=f"Unknown instrument: {error}") from error
         except NotEnoughDataError as error:

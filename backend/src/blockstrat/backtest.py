@@ -11,6 +11,7 @@ from backtesting.lib import FractionalBacktest
 
 from blockstrat.schema import (
     BacktestMode,
+    BacktestPeriod,
     BacktestResult,
     Bar,
     Direction,
@@ -25,8 +26,10 @@ from blockstrat.signals import condition_operands, condition_series, warmed_up
 
 STARTING_CASH = 10_000
 PREVIEW_BAR_COUNT = 3000
-# Charts never need more points than a screen has pixels; metrics still use every bar.
-MAX_CHART_POINTS = 5000
+# Charts are sent at most this many points; longer histories are merged into fewer, longer candles. A year of
+# hourly candles fits unmerged, so a trade's entry and exit never share a candle on the chart when they did
+# not share one in the test. Metrics always use every bar.
+MAX_CHART_POINTS = 10_000
 # backtesting.py rejects size == 1 (it means "one unit"); just under 1 means "all equity".
 MAX_EQUITY_FRACTION = 0.9999
 
@@ -44,12 +47,24 @@ class SideSignals:
         self.exit = exit_
 
 
-def run_backtest(strategy: Strategy, bars: pd.DataFrame, mode: BacktestMode) -> BacktestResult:
+PERIOD_LENGTHS: dict[BacktestPeriod, pd.DateOffset] = {
+    "3m": pd.DateOffset(months=3),
+    "6m": pd.DateOffset(months=6),
+    "1y": pd.DateOffset(years=1),
+    "3y": pd.DateOffset(years=3),
+}
+
+
+def run_backtest(strategy: Strategy, bars: pd.DataFrame, mode: BacktestMode, period: BacktestPeriod = "all") -> BacktestResult:
+    # The signals see the whole history, so the indicators are warmed up on the first candle of a period too.
     signals = _signals(strategy, bars)
-    if mode == "preview":
-        bars = bars.iloc[-PREVIEW_BAR_COUNT:]
+    kept = PREVIEW_BAR_COUNT if mode == "preview" else len(bars)
+    if period != "all":
+        kept = min(kept, int((bars.index > bars.index[-1] - PERIOD_LENGTHS[period]).sum()))
+    if kept < len(bars):
+        bars = bars.iloc[-kept:]
         signals = {
-            direction: SideSignals(side.side, side.entry[-PREVIEW_BAR_COUNT:], side.exit[-PREVIEW_BAR_COUNT:])
+            direction: SideSignals(side.side, side.entry[-kept:], side.exit[-kept:])
             for direction, side in signals.items()
         }
     if len(bars) < 2:
@@ -63,6 +78,7 @@ def run_backtest(strategy: Strategy, bars: pd.DataFrame, mode: BacktestMode) -> 
         cash=STARTING_CASH,
         commission=strategy.execution.commission_pct / 100,
         spread=strategy.execution.slippage_bps / 10_000,
+        margin=1 / strategy.execution.leverage,
         trade_on_close=False,
         exclusive_orders=False,
         finalize_trades=True,
@@ -91,9 +107,15 @@ def _signals(strategy: Strategy, bars: pd.DataFrame) -> dict[Direction, SideSign
             signals[direction] = SideSignals(None, never, never)
             continue
         entry = (condition_series(bars, side.entry) & ready).to_numpy()
-        exit_ = never if side.exit.rule is None else (condition_series(bars, side.exit.rule) & ready).to_numpy()
+        exit_ = never if side.exit.rule is None else _turns_true((condition_series(bars, side.exit.rule) & ready).to_numpy())
         signals[direction] = SideSignals(side, entry, exit_)
     return signals
+
+
+def _turns_true(holds: np.ndarray) -> np.ndarray:
+    """An exit rule closes a trade on the bar it becomes true, not on every bar it stays true: "RSI above 75"
+    that already held when the trade was entered would otherwise close it on the very next candle."""
+    return holds & ~np.concatenate(([False], holds[:-1]))
 
 
 def _engine_strategy(
@@ -164,6 +186,14 @@ def _unix_seconds(timestamp: pd.Timestamp) -> int:
 
 def _optional_number(value: float) -> float | None:
     return None if value is None or math.isnan(value) else float(value)
+
+
+def _optional_hours(duration: pd.Timedelta) -> float | None:
+    return None if pd.isna(duration) else duration.total_seconds() / 3600
+
+
+def _optional_days(duration: pd.Timedelta) -> float | None:
+    return None if pd.isna(duration) else duration.total_seconds() / 86_400
 
 
 def _chart_frame(bars: pd.DataFrame, equity: pd.Series, buy_and_hold: pd.Series) -> pd.DataFrame:
@@ -244,6 +274,13 @@ def _to_result(mode: BacktestMode, bars: pd.DataFrame, stats: pd.Series, strateg
             win_rate_pct=_optional_number(stats["Win Rate [%]"]),
             trade_count=int(stats["# Trades"]),
             exposure_time_pct=float(stats["Exposure Time [%]"]),
+            annual_return_pct=_optional_number(stats["Return (Ann.) [%]"]),
+            sortino_ratio=_optional_number(stats["Sortino Ratio"]),
+            calmar_ratio=_optional_number(stats["Calmar Ratio"]),
+            profit_factor=_optional_number(stats["Profit Factor"]),
+            avg_trade_pct=_optional_number(stats["Avg. Trade [%]"]),
+            avg_trade_hours=_optional_hours(stats["Avg. Trade Duration"]),
+            max_drawdown_days=_optional_days(stats["Max. Drawdown Duration"]),
         ),
         sides=_side_results(strategy, trades),
         both_signalled=both_signalled,

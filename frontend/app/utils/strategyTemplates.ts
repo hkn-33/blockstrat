@@ -17,7 +17,7 @@ const CLOSE: Operand = { kind: 'price', field: 'close' }
 const MACD_LINE: Operand = { kind: 'macd', fast: 12, slow: 26, signal: 9, line: 'macd' }
 const MACD_SIGNAL: Operand = { kind: 'macd', fast: 12, slow: 26, signal: 9, line: 'signal' }
 const MACD_HISTOGRAM: Operand = { kind: 'macd', fast: 12, slow: 26, signal: 9, line: 'histogram' }
-const EXECUTION = { commission_pct: 0.1, slippage_bps: 5 }
+const EXECUTION = { commission_pct: 0.1, slippage_bps: 5, leverage: 1 }
 
 function compare(left: Operand, operator: Comparison['operator'], right: Operand): Comparison {
   return { kind: 'compare', operator, left, right }

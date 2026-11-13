@@ -344,8 +344,6 @@ defineExpose({ fly, cancelFlight })
   width: 1.25rem;
   height: 1.25rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
 }
 
 .pace {

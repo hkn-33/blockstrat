@@ -1,6 +1,7 @@
 // Strategy persistence outside the editor: browser storage, JSON files and share links.
 import { compressToEncodedURIComponent, decompressFromEncodedURIComponent } from 'lz-string'
-import type { StrategyDraft } from '~/types/api'
+import type { Proposal, StrategyDraft } from '~/types/api'
+import type { SavedTrade } from './drawnTrades'
 import { documentFromDraft, documentToDraft } from './strategyDocument'
 
 export class InvalidStrategyError extends Error {}
@@ -134,6 +135,68 @@ export function saveHintsOn(isOn: boolean): void {
   }
 }
 
+// Lists kept per chart (one market at one candle size), under one storage key each.
+function readPerChart<T>(storageKey: string): Record<string, T[]> {
+  try {
+    const saved = JSON.parse(readStorage(storageKey) ?? '{}') as Record<string, T[]>
+    return typeof saved === 'object' && saved !== null ? saved : {}
+  }
+  catch {
+    return {}
+  }
+}
+
+function loadPerChart<T>(storageKey: string, chart: string): T[] {
+  const list = readPerChart<T>(storageKey)[chart]
+  return Array.isArray(list) ? list : []
+}
+
+function savePerChart<T>(storageKey: string, chart: string, list: T[]): void {
+  const saved = readPerChart<T>(storageKey)
+  if (list.length) saved[chart] = list
+  else delete saved[chart]
+  writeStorage(storageKey, JSON.stringify(saved))
+}
+
+const DRAWN_TRADES_KEY = 'blockstrat:drawn-trades'
+const FOUND_STRATEGIES_KEY = 'blockstrat:found-strategies'
+
+/** The trades drawn on one chart, kept so a reload does not lose them. */
+export function loadDrawnTrades(chart: string): SavedTrade[] {
+  return loadPerChart(DRAWN_TRADES_KEY, chart)
+}
+
+export function saveDrawnTrades(chart: string, trades: SavedTrade[]): void {
+  savePerChart(DRAWN_TRADES_KEY, chart, trades)
+}
+
+/** The strategies the last search on a chart found, kept so they need not be searched for again. */
+export function loadFoundStrategies(chart: string): Proposal[] {
+  return loadPerChart(FOUND_STRATEGIES_KEY, chart)
+}
+
+export function saveFoundStrategies(chart: string, proposals: Proposal[]): void {
+  savePerChart(FOUND_STRATEGIES_KEY, chart, proposals)
+}
+
+/** The library after the current strategy is saved into it as it stands: under its name, an untitled one under
+ * a name of its own, a renamed one moved, and never over another strategy that has the name. `savedAs` is the
+ * name it was last saved under, null for a strategy not saved yet. */
+export function autosaved(library: StrategyLibrary, savedAs: string | null, name: string, strategy: StrategyDraft): { library: StrategyLibrary, savedAs: string, name: string } {
+  const { [savedAs ?? '']: _previous, ...others } = library
+  const wanted = name.trim() || 'Untitled strategy'
+  const free = wanted === savedAs ? wanted : freeLibraryName(others, wanted)
+  return { library: { ...others, [free]: strategy }, savedAs: free, name: name.trim() && free === wanted ? name : free }
+}
+
+/** A name not yet taken in the library: "RSI dip", then "RSI dip 2", "RSI dip 3". */
+export function freeLibraryName(library: StrategyLibrary, name: string): string {
+  if (!(name in library)) return name
+  let number = 2
+  while (`${name} ${number}` in library) number++
+  return `${name} ${number}`
+}
+
 const PANELS_KEY = 'blockstrat:panel-widths'
 
 /** The widths, in pixels, the user dragged the builder's side columns to; null keeps the default. */
@@ -154,6 +217,31 @@ export function loadPanelWidths(): PanelWidths {
 
 export function savePanelWidths(widths: PanelWidths): void {
   writeStorage(PANELS_KEY, JSON.stringify(widths))
+}
+
+const REWARD_TO_RISK_KEY = 'blockstrat:reward-to-risk'
+
+/** How many times its stop-loss a new drawn trade aims to make; 2 unless the user chose otherwise. */
+export function loadRewardToRisk(): number {
+  const stored = Number(readStorage(REWARD_TO_RISK_KEY))
+  return stored > 0 ? stored : 2
+}
+
+export function saveRewardToRisk(rewardToRisk: number): void {
+  writeStorage(REWARD_TO_RISK_KEY, String(rewardToRisk))
+}
+
+const LAYOUT_KEY = 'blockstrat:layout'
+
+/** Which column widths are in use: the default ones, or the user's own (kept even while the default is on). */
+export type Layout = 'default' | 'custom'
+
+export function loadLayout(): Layout {
+  return readStorage(LAYOUT_KEY) === 'default' ? 'default' : 'custom'
+}
+
+export function saveLayout(layout: Layout): void {
+  writeStorage(LAYOUT_KEY, layout)
 }
 
 export function loadLibrary(): StrategyLibrary {

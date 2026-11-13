@@ -122,7 +122,7 @@ function negateGroup(): void {
       <span class="rules-muted">{{ group.negated ? 'of these must not be true' : 'of these' }}</span>
       <span class="ml-auto flex gap-1">
         <button v-if="isAdvanced || group.negated" type="button" class="icon-button" :aria-pressed="group.negated" :title="group.negated ? 'Remove the &quot;not&quot;' : 'Turn into its opposite'" @click="negateGroup">not</button>
-        <button type="button" class="icon-button" aria-label="Remove this group" @click="removeGroup"><UiIcon name="x" /></button>
+        <button type="button" class="icon-button" v-tip="'Remove this group'" @click="removeGroup"><UiIcon name="x" /></button>
       </span>
     </div>
 
@@ -146,7 +146,7 @@ function negateGroup(): void {
         filter="input, select, .popover"
         :prevent-on-filter="false"
       >
-        <li v-for="(item, index) in group.items" :key="item.id" class="rules-row drag-row">
+        <li v-for="(item, index) in group.items" :key="item.id" class="rules-row drag-row" :class="{ 'has-weight': isScore && (isAdvanced || item.weight !== 1) }">
           <!-- In a score neither "and" nor "or" is true, so the rows stand alone. -->
           <span v-if="index > 0 && !isScore" class="rules-joiner">{{ joiner }}</span>
           <template v-if="isScore">
@@ -238,7 +238,9 @@ function negateGroup(): void {
 }
 
 .match {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   gap: 2px;
   border-radius: 8px;
   background: var(--panel-fill);
@@ -308,7 +310,7 @@ button.weight[aria-expanded="true"] {
 }
 
 /* A row with a mark keeps the mark beside its tile: the tile narrows and wraps instead of dropping below. */
-.rules-row:has(> .weight) {
+.rules-row.has-weight {
   flex-wrap: nowrap;
   align-items: flex-start;
 }
@@ -419,7 +421,8 @@ button.weight[aria-expanded="true"] {
 }
 
 /* While a condition is in hand the box lights up; it needs no reach past its edges. */
-:global(body:has(> .sortable-fallback:not(:has(.coin-mark))) .branch > .drop-list.is-empty) {
+:global(body[data-dragging="condition"] .branch > .drop-list.is-empty),
+:global(body[data-dragging="limit"] .branch > .drop-list.is-empty) {
   margin-bottom: 0;
   padding-bottom: 0;
   border-color: var(--accent-ink);
@@ -450,9 +453,9 @@ button.weight[aria-expanded="true"] {
   transform: scale(0.96);
 }
 
-/* While a block is in hand (Sortable puts its copy on <body>), every group's drop area reaches past its
-   edges, so a block let go near a group snaps into it rather than needing a pixel-exact aim. */
-:global(body:has(> .sortable-fallback) .drop-list) {
+/* While a block is in hand, every group's drop area reaches past its edges, so a block let go near a group
+   snaps into it rather than needing a pixel-exact aim. */
+:global(body[data-dragging] .drop-list) {
   position: relative;
   z-index: 2;
   margin-bottom: -3rem;
@@ -460,7 +463,7 @@ button.weight[aria-expanded="true"] {
 }
 
 /* The hand stays closed over whatever the block passes, so it reads as held all the way. */
-:global(body:has(> .sortable-fallback) *) {
+:global(body[data-dragging] *) {
   cursor: grabbing !important;
 }
 

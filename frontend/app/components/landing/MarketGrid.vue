@@ -243,8 +243,6 @@ const verdict = computed(() => marketsVerdict(cards.value.map(card => ({ returnP
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
 }
 
 .verdict {

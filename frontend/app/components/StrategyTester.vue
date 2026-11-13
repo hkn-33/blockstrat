@@ -1,12 +1,27 @@
 <script setup lang="ts">
 import type { ResultSummary } from '~/utils/resultSummary'
 
-// The numbers under the chart, laid out like a strategy tester's overview. The gap to holding leads,
-// because it says whether the rules were worth following at all.
-const props = defineProps<{ summary: ResultSummary, coin: string }>()
+// The numbers under the chart, laid out like a strategy tester's overview. On the landing page the gap to
+// holding leads, the case for testing at all. In the builder, given the months the test covers, what the
+// rules made leads instead, and how much that is a month: the question a trader actually asks.
+// `compact` keeps the four numbers a first strategy is judged by.
+const props = withDefaults(defineProps<{ summary: ResultSummary, coin: string, months?: number, compact?: boolean }>(), { months: undefined, compact: false })
 
 const netProfit = computed(() => (STARTING_CASH * props.summary.total_return_pct) / 100)
 const gap = computed(() => holdingGap(props.summary, props.coin))
+const isProfitFirst = computed(() => props.months !== undefined)
+
+/** The steady monthly return that compounds to the total over the period. */
+const perMonth = computed(() => {
+  if (!props.months) return 0
+  return ((1 + props.summary.total_return_pct / 100) ** (1 / props.months) - 1) * 100
+})
+
+function periodWords(months: number): string {
+  if (months < 1.5) return 'in a month'
+  if (months < 23.5) return `in ${Math.round(months)} months`
+  return `in ${(months / 12).toFixed(1).replace(/\.0$/, '')} years`
+}
 
 function plainPercent(value: number): string {
   return `${Math.abs(Math.round(value))}%`
@@ -19,7 +34,15 @@ function tradePercent(value: number | null): string {
 
 <template>
   <div class="tester">
-    <div class="headline">
+    <div v-if="isProfitFirst" class="headline">
+      <p class="edge" :class="netProfit >= 0 ? 'is-ahead' : 'down'">
+        {{ netProfit >= 0 ? '+' : '' }}{{ formatDollars(netProfit) }} <span>{{ periodWords(months!) }} from $10,000</span>
+      </p>
+      <p class="summary">
+        {{ formatSignedPercent(summary.total_return_pct) }} over {{ summary.trade_count }} {{ summary.trade_count === 1 ? 'trade' : 'trades' }}, about {{ formatSignedPercent(perMonth) }} a month.
+      </p>
+    </div>
+    <div v-else class="headline">
       <p class="edge" :class="gap.isAhead ? 'is-ahead' : 'down'">
         {{ gap.dollars }} <span>{{ gap.words }}</span>
       </p>
@@ -29,13 +52,24 @@ function tradePercent(value: number | null): string {
       </p>
     </div>
     <dl class="overview">
-      <div>
+      <!-- The headline already says the profit in dollars and percent; the builder says how often it trades instead. -->
+      <div v-if="isProfitFirst && !compact">
+        <dt>Trades a month</dt>
+        <dd>{{ (summary.trade_count / months!).toFixed(1) }}</dd>
+      </div>
+      <div v-else-if="!isProfitFirst">
         <dt>Net profit</dt>
         <dd :class="netProfit >= 0 ? 'up' : 'down'">
           {{ formatDollars(netProfit) }} <small>{{ formatSignedPercent(summary.total_return_pct) }}</small>
         </dd>
       </div>
-      <div>
+      <div v-if="isProfitFirst">
+        <dt>A month, on average</dt>
+        <dd :class="perMonth >= 0 ? 'up' : 'down'">
+          {{ formatSignedPercent(perMonth) }}
+        </dd>
+      </div>
+      <div v-else>
         <dt>Holding {{ coin }}</dt>
         <dd>{{ formatSignedPercent(summary.buy_and_hold_return_pct) }}</dd>
       </div>
@@ -47,11 +81,11 @@ function tradePercent(value: number | null): string {
         <dt>Profitable</dt>
         <dd>{{ Math.round(summary.win_rate_pct) }}%</dd>
       </div>
-      <div>
+      <div v-if="!compact">
         <dt>Best trade</dt>
         <dd>{{ tradePercent(summary.best_trade_pct) }}</dd>
       </div>
-      <div>
+      <div v-if="!compact">
         <dt>Worst trade</dt>
         <dd>{{ tradePercent(summary.worst_trade_pct) }}</dd>
       </div>
@@ -59,7 +93,7 @@ function tradePercent(value: number | null): string {
         <dt>Max drawdown</dt>
         <dd>{{ formatSignedPercent(summary.max_drawdown_pct) }}</dd>
       </div>
-      <div>
+      <div v-if="!compact">
         <dt>Fees paid</dt>
         <dd>{{ formatDollars(summary.fees_paid) }}</dd>
       </div>

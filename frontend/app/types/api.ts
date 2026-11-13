@@ -269,6 +269,7 @@ export interface Exit {
 export interface ExecutionModel {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
  * A strategy as the editor sends it: the required parts may still be missing.
@@ -303,6 +304,7 @@ export interface SideDraft {
 export interface ExecutionModel1 {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -311,6 +313,7 @@ export interface ExecutionModel1 {
 export interface BacktestRequest {
   strategy: StrategyDraft;
   mode?: "preview" | "full";
+  period?: "3m" | "6m" | "1y" | "3y" | "all";
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -396,6 +399,13 @@ export interface Metrics {
   win_rate_pct: number | null;
   trade_count: number;
   exposure_time_pct: number;
+  annual_return_pct?: number | null;
+  sortino_ratio?: number | null;
+  calmar_ratio?: number | null;
+  profit_factor?: number | null;
+  avg_trade_pct?: number | null;
+  avg_trade_hours?: number | null;
+  max_drawdown_days?: number | null;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -442,6 +452,7 @@ export interface ExecutionPreset {
 export interface ExecutionModel2 {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -680,10 +691,13 @@ export interface BarsResponse {
 export interface SuggestRequest {
   instrument: string;
   timeframe: "1d" | "4h" | "1h";
+  direction?: "long" | "short";
   /**
    * @maxItems 400
    */
   marks: Mark[];
+  stop_loss_pct?: number | null;
+  take_profit_pct?: number | null;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -710,24 +724,34 @@ export interface SuggestResponse {
 export interface Proposal {
   name: string;
   strategy: StrategyDraft;
-  buys_hit: number;
-  buys_marked: number;
   /**
-   * Buy signals between the first and last mark with no buy mark near them
+   * How the strategy gets out, in words, and why when it is not as drawn
    */
-  extra_buys: number;
-  sells_hit: number;
-  sells_marked: number;
-  extra_sells: number;
+  exit_note: string;
+  entries_hit: number;
+  entries_marked: number;
   /**
-   * When the entry rule signals, within the candles /api/bars returns
+   * Entry signals between the first and last mark with no entry mark near them
+   */
+  extra_entries: number;
+  exits_hit: number;
+  exits_marked: number;
+  extra_exits: number;
+  /**
+   * When the strategy's trades got in, within the candles /api/bars returns
    */
   entry_times: number[];
+  /**
+   * When they got out, within the same candles
+   */
   exit_times: number[];
   /**
    * On the whole history, not only the marked stretch
    */
   total_return_pct: number;
-  buy_and_hold_return_pct: number;
+  /**
+   * The deepest fall from a high on the whole history, zero or below
+   */
+  max_drawdown_pct: number;
   trade_count: number;
 }

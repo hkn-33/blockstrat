@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
 import type { InstrumentInfo } from '~/types/api'
-import { INDICATOR_BLOCKS, READY_CONDITIONS, byIdea, indicatorBlock, type IndicatorKind } from '~/utils/blockLibrary'
+import { INDICATOR_BLOCKS, READY_CONDITIONS, byIdea, indicatorBlock, indicatorIcon, type IndicatorKind } from '~/utils/blockLibrary'
 import type { GuideStep } from '~/utils/strategyGuide'
 import type { Item, LimitKind } from '~/utils/strategyDocument'
 
@@ -18,12 +18,20 @@ const emit = defineEmits<{
 }>()
 
 type Tab = 'market' | 'buy' | 'sell' | 'learn'
-const TABS: { value: Tab, label: string }[] = [
-  { value: 'market', label: 'Market' },
-  { value: 'buy', label: 'Get in' },
-  { value: 'sell', label: 'Get out' },
-  { value: 'learn', label: 'Learn' },
+const TABS: { value: Tab, label: string, icon: string }[] = [
+  { value: 'market', label: 'Market', icon: 'coins' },
+  { value: 'buy', label: 'Get in', icon: 'log-in' },
+  { value: 'sell', label: 'Get out', icon: 'log-out' },
+  { value: 'learn', label: 'Learn', icon: 'book-open' },
 ]
+
+const IDEA_ICONS: Record<string, string> = {
+  'Trend': 'trending-up',
+  'Dips and peaks': 'arrow-down-up',
+  'Momentum': 'zap',
+  'Breakouts': 'arrow-up-from-line',
+  'Volume': 'audio-lines',
+}
 
 // The groups the Get in / Get out tabs add to, named for the side they belong to.
 const isShort = computed(() => props.sides.find(side => side.id === props.sideId)?.direction === 'short')
@@ -153,7 +161,7 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
       </label>
       <div v-if="!isSearching" class="tabs" role="tablist" aria-label="Block groups">
         <button v-for="option in TABS" :key="option.value" type="button" role="tab" :aria-selected="tab === option.value" :class="{ 'is-on': tab === option.value }" @click="tab = option.value">
-          {{ option.label }}
+          <UiIcon :name="option.icon" class="tab-icon" /> {{ option.label }}
         </button>
       </div>
     </div>
@@ -227,19 +235,19 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
             </h2>
             <div v-for="section in list.sections" :key="section.idea" class="idea">
               <h3 class="idea-title">
-                {{ section.idea }}
+                <UiIcon v-if="IDEA_ICONS[section.idea]" :name="IDEA_ICONS[section.idea]!" /> {{ section.idea }}
               </h3>
               <VueDraggable :model-value="section.conditions" tag="ul" class="entries" :group="{ name: 'conditions', pull: 'clone', put: false }" :sort="false" :clone="cloneCondition" :force-fallback="true" :fallback-on-body="true" :fallback-tolerance="4" filter=".entry-study" :prevent-on-filter="false" drag-class="is-dragging" ghost-class="drop-preview" @start="startDrag">
                 <li v-for="condition in section.conditions" :key="condition.label" class="entry-row">
                   <button type="button" class="entry" @click="emit('addCondition', condition.build(), list.part)" @mouseenter="showHelp(condition.kind, $event)" @mouseleave="hideHelp" @focus="showHelp(condition.kind, $event)" @blur="hideHelp">
-                    <span class="entry-mark" :class="{ 'entry-mark--sell': list.part === 'exit' }" />
+                    <span class="entry-mark" :class="{ 'entry-mark--sell': list.part === 'exit' }"><UiIcon :name="indicatorIcon(condition.kind)" /></span>
                     <span class="min-w-0">
                       <span class="entry-label">{{ condition.label }}</span>
                       <span class="entry-detail">{{ indicatorBlock(condition.kind).short }}</span>
                     </span>
                     <UiIcon name="plus" class="entry-add" />
                   </button>
-                  <button type="button" class="entry-study" :aria-label="`Study ${indicatorBlock(condition.kind).name} on a large chart`" :title="`Study ${indicatorBlock(condition.kind).name} on a large chart`" @click="study(condition.kind)">
+                  <button type="button" class="entry-study" v-tip="`Study ${indicatorBlock(condition.kind).name} on a large chart`" @click="study(condition.kind)">
                     <UiIcon name="expand" />
                   </button>
                 </li>
@@ -257,6 +265,7 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
         <ul class="grid gap-1.5">
           <li v-for="block in indicators" :key="block.kind" class="learn" :class="{ 'is-open': expanded === block.kind }">
             <button type="button" class="learn-head" :aria-expanded="expanded === block.kind" @click="expanded = expanded === block.kind ? null : block.kind">
+              <span class="learn-icon"><UiIcon :name="indicatorIcon(block.kind)" /></span>
               <span class="min-w-0">
                 <span class="entry-label">{{ block.name }}</span>
                 <span class="entry-detail">{{ block.short }}</span>
@@ -378,7 +387,12 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
   padding: 3px;
 }
 
+/* Each tab is its glyph over its name, so four fit a narrow column. */
 .tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
   border-radius: 7px;
   padding: 0.35rem 0;
   font-size: 13px;
@@ -411,10 +425,19 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
 }
 
 .idea-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   margin: 0 0 0.1rem 0.5rem;
   font-size: 12px;
   font-weight: 600;
   color: var(--panel-ink);
+}
+
+.idea-title svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--accent-ink);
 }
 
 /* list-style: the dragged copy is moved onto <body>, outside its list, where a list item gets a bullet. */
@@ -486,17 +509,42 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
   display: none;
 }
 
+/* Each ready condition shows its indicator's glyph, tinted for getting in or getting out. */
 .entry-mark {
-  width: 0.7rem;
-  height: 0.7rem;
+  display: grid;
+  width: 1.9rem;
+  height: 1.9rem;
   flex-shrink: 0;
-  margin: 0.3rem 0.4rem 0;
-  border-radius: 3px;
-  background: var(--color-gain);
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-gain) 16%, transparent);
+  color: var(--gain-ink);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.entry-mark svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.entry:hover .entry-mark {
+  transform: scale(1.08);
 }
 
 .entry-mark--sell {
-  background: var(--color-loss);
+  background: color-mix(in srgb, var(--color-loss) 16%, transparent);
+  color: var(--loss-ink);
+}
+
+.tab-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-mark {
+    transition: none;
+  }
 }
 
 /* Names and descriptions wrap rather than being cut: a newcomer needs the whole sentence. */
@@ -664,11 +712,29 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
   box-shadow: inset 0 0 0 1px var(--panel-line);
 }
 
+.learn-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--panel-fill);
+  color: var(--accent-ink);
+}
+
+.learn-icon svg {
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+/* Every entry has the same height however narrow the column: the name on one line, the description on two.
+   The whole of both is in the entry once it is opened. */
 .learn-head {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
   padding: 0.6rem 0.7rem;
   text-align: left;
 }
@@ -767,5 +833,22 @@ onBeforeUnmount(() => clearTimeout(hoverTimer))
   .entry-row.is-dragging .entry {
     transform: none;
   }
+}
+</style>
+
+<style scoped>
+.learn-head .entry-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learn-head .entry-detail {
+  display: -webkit-box;
+  overflow: hidden;
+  height: 2.7em;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 </style>

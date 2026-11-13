@@ -47,7 +47,7 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - `frontend/app/components/landing/`: landing-page sections and pieces (read-only builder canvas that builds itself, TradingView-style chart and strategy tester, product window, pinned steps, AI demo).
 - `frontend/app/assets/icons/`: Lucide interface glyphs, inlined by `UiIcon`.
 - `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).
-- `frontend/app/utils/`: the strategy document (editable model ↔ strategy JSON), the guide, the block library and indicator maths, the popular-strategy templates, the build replay's steps, result summaries, strategy files/share links.
+- `frontend/app/utils/`: the strategy document (editable model ↔ strategy JSON), the guide, the block library and indicator maths, the popular-strategy templates, the build replay's steps, result summaries, strategy files/share links, drawn trades, the Pine Script export.
 - `frontend/app/composables/`: the strategy editor with undo, backtests per market, the build replay, the simple/advanced mode, the API client, chart themes and the landing demo.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.
 - `frontend/public/fx/`: the taste kit's grain-gradient shader (copied as plain files), the hero's moving ground.

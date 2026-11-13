@@ -1,9 +1,10 @@
 import type { BacktestResult, StrategyDraft } from '~/types/api'
-import type { BacktestMode } from './useApi'
+import type { Ref } from 'vue'
+import type { BacktestMode, BacktestPeriod } from './useApi'
 
 const DEBOUNCE_MS = 250
-// Always the whole history: it takes well under a second, and a result on only the latest candles next to
-// a "full" one that says the opposite is worse than no preview at all.
+// Always every candle of the chosen period: it takes well under a second, and a result on only some of them
+// next to a full one that says the opposite is worse than no preview at all.
 const HISTORY: BacktestMode = 'full'
 // A backtest often returns in under 100 ms. Showing "Calculating" for a moment makes it clear the
 // result is new, instead of numbers silently swapping.
@@ -31,8 +32,9 @@ function strategyFor(strategy: StrategyDraft, symbol: string): StrategyDraft {
   return { ...strategy, instrument: symbol, extra_instruments: [] }
 }
 
-/** Runs the latest strategy on every chosen market, one request each: debounced, stale requests aborted. */
-export function useBacktest() {
+/** Runs the latest strategy on every chosen market over the chosen period, one request each: debounced, stale
+ * requests aborted. */
+export function useBacktest(period: Ref<BacktestPeriod>) {
   const api = useApi()
   const runs = ref<MarketRuns>({})
   const isLoading = computed(() => Object.values(runs.value).some(run => run.isLoading))
@@ -71,7 +73,7 @@ export function useBacktest() {
     patch(symbol, { isLoading: true })
     const startedAt = performance.now()
     try {
-      const response = await api.backtest(strategy, HISTORY, controller.signal)
+      const response = await api.backtest(strategy, HISTORY, period.value, controller.signal)
       const serverMs = performance.now() - startedAt
       if (serverMs < MINIMUM_CALCULATING_MS) {
         await new Promise(resolve => setTimeout(resolve, MINIMUM_CALCULATING_MS - serverMs))
@@ -105,7 +107,7 @@ export function useBacktest() {
     dropMarketsOtherThan(symbols)
     const requests = symbols.map((symbol) => {
       const marketStrategy = strategyFor(strategy, symbol)
-      const key = JSON.stringify(marketStrategy)
+      const key = `${period.value}:${JSON.stringify(marketStrategy)}`
       // Editing fires for every keystroke and drag; a market whose request has not changed needs no new run.
       return isCurrent(symbol, key) ? undefined : runMarket(marketStrategy, key)
     })

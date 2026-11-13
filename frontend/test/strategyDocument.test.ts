@@ -30,7 +30,7 @@ import {
 } from '~/utils/strategyDocument'
 import { STRATEGY_TEMPLATES } from '~/utils/strategyTemplates'
 
-const EXECUTION: ExecutionModel = { commission_pct: 0.1, slippage_bps: 5 }
+const EXECUTION: ExecutionModel = { commission_pct: 0.1, slippage_bps: 5, leverage: 1 }
 const CLOSE = { kind: 'price', field: 'close' } as const
 const RSI = { kind: 'rsi', period: 14 } as const
 const EMA20 = { kind: 'ema', period: 20 } as const
@@ -179,6 +179,12 @@ describe('strategy ↔ document', () => {
 
     expect(documentFromDraft(older).instruments).toEqual(['BTCUSDT'])
     expect(documentToDraft(documentFromDraft(older))).toEqual(draft())
+  })
+
+  it('reads a strategy saved before leverage as trading without it', () => {
+    const older = draft({ execution: { commission_pct: 0.1, slippage_bps: 5 } as ExecutionModel })
+
+    expect(documentFromDraft(older).execution.leverage).toBe(1)
   })
 
   it('reads the markets without gaps or repeats', () => {

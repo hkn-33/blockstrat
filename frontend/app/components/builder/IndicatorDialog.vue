@@ -56,7 +56,7 @@ onMounted(() => {
               {{ block.short }}
             </p>
           </div>
-          <button type="button" class="dialog-close" aria-label="Close" @click="dialog?.close()">
+          <button type="button" class="dialog-close" v-tip="'Close'" @click="dialog?.close()">
             <UiIcon name="x" />
           </button>
         </header>

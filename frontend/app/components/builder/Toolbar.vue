@@ -1,14 +1,30 @@
 <script setup lang="ts">
 import type { StrategyDraft } from '~/types/api'
-import type { StrategyLibrary } from '~/utils/strategyFiles'
+import type { Layout, StrategyLibrary } from '~/utils/strategyFiles'
 
-// The bar over the builder: the strategy's name, undo, the simple or advanced mode, saved strategies, the
-// share link and the theme.
-const props = defineProps<{ draft: StrategyDraft, name: string }>()
+// The bar over the builder: the strategy's name, undo, the simple or advanced mode, the file actions (new,
+// open, save, share, each as wide as the others) and the theme.
+const props = defineProps<{ draft: StrategyDraft, name: string, layout: Layout, hasCustomLayout: boolean, hasUnsavedChanges: boolean, lastSavedAt: number | null }>()
+
+// Whether the strategy is saved, said quietly beside its name; clicking it saves at once.
+const now = ref(Date.now())
+let clock: ReturnType<typeof setInterval> | undefined
+onMounted(() => {
+  clock = setInterval(() => (now.value = Date.now()), 15_000)
+})
+const saveStatus = computed(() => {
+  if (props.hasUnsavedChanges) return 'Unsaved changes'
+  if (props.lastSavedAt === null) return ''
+  const minutes = Math.floor((now.value - props.lastSavedAt) / 60_000)
+  return minutes < 1 ? 'Saved just now' : `Saved ${minutes} min ago`
+})
 
 const emit = defineEmits<{
-  open: [strategy: StrategyDraft, name: string]
-  startNew: []
+  'open': [strategy: StrategyDraft, name: string]
+  'startNew': []
+  'update:name': [name: string]
+  'update:layout': [layout: Layout]
+  'saveNow': []
 }>()
 
 const editor = useStrategyEditor()
@@ -16,7 +32,13 @@ const { isAdvanced, setAdvanced } = useBuilderMode()
 const colorMode = useColorMode()
 const isDark = computed(() => colorMode.value !== 'light')
 
-const menu = ref<'strategies' | null>(null)
+const menu = ref<'open' | 'save' | 'layout' | null>(null)
+const layoutAnchor = ref<HTMLElement | null>(null)
+
+function chooseLayout(layout: Layout): void {
+  emit('update:layout', layout)
+  menu.value = null
+}
 const menuAnchor = ref<HTMLElement | null>(null)
 const library = ref<StrategyLibrary>({})
 const saveName = ref('')
@@ -24,14 +46,18 @@ const notice = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
 let noticeTimer: ReturnType<typeof setTimeout> | undefined
 
-function toggleMenu(event: MouseEvent): void {
+function toggleMenu(which: 'open' | 'save', event: MouseEvent): void {
   menuAnchor.value = event.currentTarget as HTMLElement
-  menu.value = menu.value ? null : 'strategies'
+  menu.value = menu.value === which ? null : which
   if (menu.value) {
     library.value = loadLibrary()
     saveName.value = props.name
   }
 }
+
+// The Share button itself says the link was copied, for a moment, in place of its label.
+const isLinkCopied = ref(false)
+let copiedTimer: ReturnType<typeof setTimeout> | undefined
 
 function say(text: string): void {
   notice.value = text
@@ -46,7 +72,8 @@ function saveAs(): void {
   library.value = { ...library.value, [name]: props.draft }
   saveLibrary(library.value)
   saveName.value = ''
-  say(`Saved as "${name}"`)
+  menu.value = null
+  say(`Saved a copy as "${name}"`)
 }
 
 function openSaved(name: string): void {
@@ -63,14 +90,33 @@ function deleteSaved(name: string): void {
   saveLibrary(rest)
 }
 
-function download(): void {
-  const blob = new Blob([serializeStrategy(props.draft)], { type: 'application/json' })
+function saveFile(text: string, type: string, extension: string): void {
   const link = document.createElement('a')
-  link.href = URL.createObjectURL(blob)
-  link.download = `blockstrat-${(props.draft.instrument ?? 'strategy').toLowerCase()}.json`
+  link.href = URL.createObjectURL(new Blob([text], { type }))
+  link.download = `blockstrat-${(props.draft.instrument ?? 'strategy').toLowerCase()}.${extension}`
   link.click()
   URL.revokeObjectURL(link.href)
   menu.value = null
+}
+
+function download(): void {
+  saveFile(serializeStrategy(props.draft), 'application/json', 'json')
+}
+
+// The same rules as a TradingView strategy, to paste into its Pine Editor.
+function downloadPine(): void {
+  saveFile(pineScript(props.draft, props.name), 'text/plain', 'pine')
+}
+
+async function copyPine(): Promise<void> {
+  menu.value = null
+  try {
+    await navigator.clipboard.writeText(pineScript(props.draft, props.name))
+    say('Pine Script copied: paste it into TradingView\'s Pine Editor')
+  }
+  catch {
+    downloadPine()
+  }
 }
 
 async function openFile(event: Event): Promise<void> {
@@ -92,7 +138,9 @@ async function share(): Promise<void> {
   const url = `${window.location.origin}${window.location.pathname}${shareHash(props.draft)}`
   try {
     await navigator.clipboard.writeText(url)
-    say('Link copied')
+    isLinkCopied.value = true
+    clearTimeout(copiedTimer)
+    copiedTimer = setTimeout(() => (isLinkCopied.value = false), 2000)
   }
   catch {
     window.prompt('Copy this link', url)
@@ -105,7 +153,11 @@ function toggleTheme(): void {
   colorMode.preference = wanted === (systemIsDark ? 'dark' : 'light') ? 'system' : wanted
 }
 
-onBeforeUnmount(() => clearTimeout(noticeTimer))
+onBeforeUnmount(() => {
+  clearInterval(clock)
+  clearTimeout(noticeTimer)
+  clearTimeout(copiedTimer)
+})
 </script>
 
 <template>
@@ -114,15 +166,20 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
       <BrandLogo />
     </NuxtLink>
 
-    <p class="strategy-name">
-      {{ name || 'New strategy' }}
-    </p>
+    <label class="strategy-name">
+      <span class="sr-only">Strategy name</span>
+      <input :value="name" placeholder="Name your strategy" maxlength="80" @input="emit('update:name', ($event.target as HTMLInputElement).value)" @keydown.enter="($event.target as HTMLInputElement).blur()">
+      <UiIcon name="pencil" class="name-pencil" />
+    </label>
+    <button v-if="saveStatus" type="button" class="save-status" :class="{ 'is-unsaved': hasUnsavedChanges }" v-tip="hasUnsavedChanges ? 'Saved every half minute; click to save now' : 'Kept in this browser, under Open'" @click="emit('saveNow')">
+      <UiIcon :name="hasUnsavedChanges ? 'loader-circle' : 'cloud-check'" /> {{ saveStatus }}
+    </button>
 
     <div class="flex items-center gap-1">
-      <button type="button" class="icon" aria-label="Undo" title="Undo (Ctrl+Z)" :disabled="!editor.canUndo.value" @click="editor.undo()">
+      <button type="button" class="icon" v-tip="'Undo (Ctrl+Z)'" :disabled="!editor.canUndo.value" @click="editor.undo()">
         <UiIcon name="undo-2" />
       </button>
-      <button type="button" class="icon" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" :disabled="!editor.canRedo.value" @click="editor.redo()">
+      <button type="button" class="icon" v-tip="'Redo (Ctrl+Shift+Z)'" :disabled="!editor.canRedo.value" @click="editor.redo()">
         <UiIcon name="redo-2" />
       </button>
     </div>
@@ -141,57 +198,105 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
         Advanced
       </button>
     </div>
-    <button type="button" class="icon mode-compact" :class="{ 'is-on': isAdvanced }" :aria-pressed="isAdvanced" aria-label="Advanced mode" title="Advanced mode: groups inside groups, weighted signals and the JSON" @click="setAdvanced(!isAdvanced)">
+    <button type="button" class="icon mode-compact" :class="{ 'is-on': isAdvanced }" :aria-pressed="isAdvanced" v-tip="'Advanced mode: groups inside groups, weighted signals and the JSON'" @click="setAdvanced(!isAdvanced)">
       <UiIcon name="graduation-cap" />
     </button>
-    <button type="button" class="control" title="Start a new strategy (undo brings this one back)" @click="emit('startNew')">
-      <UiIcon name="file-plus" /> <span class="label">New strategy</span>
+    <button ref="layoutAnchor" type="button" class="icon" :aria-expanded="menu === 'layout'" v-tip="'Layout'" @click="menu = menu === 'layout' ? null : 'layout'">
+      <UiIcon name="panels-top-left" />
     </button>
-    <button type="button" class="control" :aria-expanded="menu === 'strategies'" @click="toggleMenu">
-      <UiIcon name="folder-open" /> <span class="label">Strategies</span>
-    </button>
-    <button type="button" class="control" @click="share">
-      <UiIcon name="share-2" /> <span class="label">Share</span>
-    </button>
+    <div class="file-actions">
+      <button type="button" class="control" v-tip="'Start a new strategy; undo brings this one back'" @click="emit('startNew')">
+        <UiIcon name="file-plus" /> <span class="label">New</span>
+      </button>
+      <button type="button" class="control" :class="{ 'is-on': menu === 'open' }" :aria-expanded="menu === 'open'" @click="toggleMenu('open', $event)">
+        <UiIcon name="folder-open" /> <span class="label">Open</span>
+      </button>
+      <button type="button" class="control" :class="{ 'is-on': menu === 'save' }" :aria-expanded="menu === 'save'" @click="toggleMenu('save', $event)">
+        <UiIcon name="save" /> <span class="label">Save</span>
+      </button>
+      <button type="button" class="control" :class="{ 'is-copied': isLinkCopied }" aria-live="polite" @click="share">
+        <UiIcon :name="isLinkCopied ? 'check' : 'share-2'" /> <span class="label">{{ isLinkCopied ? 'Copied' : 'Share' }}</span>
+      </button>
+    </div>
     <ClientOnly>
-      <button type="button" class="icon" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+      <button type="button" class="icon" v-tip="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
         <UiIcon :name="isDark ? 'sun' : 'moon'" />
       </button>
     </ClientOnly>
 
 
-    <BuilderPopover v-if="menu === 'strategies'" :anchor="menuAnchor" label="Strategies" @close="menu = null">
-      <form class="flex gap-2" @submit.prevent="saveAs">
-        <label class="sr-only" for="save-name">Name for this strategy</label>
-        <input id="save-name" v-model="saveName" class="text-input" placeholder="Name this strategy">
-        <button type="submit" class="small-button" :disabled="!saveName.trim()">
-          <UiIcon name="save" /> Save
-        </button>
-      </form>
-      <p v-if="Object.keys(library).length" class="menu-heading">
-        Saved in this browser
+    <BuilderPopover v-if="menu === 'layout'" :anchor="layoutAnchor" label="Layout" @close="menu = null">
+      <p class="menu-heading">
+        Layout
       </p>
       <ul class="grid gap-0.5">
-        <li v-for="name in Object.keys(library)" :key="name" class="flex items-center gap-1">
-          <button type="button" class="choice" @click="openSaved(name)">
-            {{ name }}
+        <li>
+          <button type="button" class="choice" :aria-pressed="layout === 'default'" @click="chooseLayout('default')">
+            <UiIcon name="panels-top-left" />
+            <span class="grid">
+              <b>Default</b>
+              <small class="layout-help">The columns at their usual widths</small>
+            </span>
+            <UiIcon v-if="layout === 'default'" name="check" class="ml-auto" />
           </button>
-          <button type="button" class="icon icon--small" :aria-label="`Delete ${name}`" @click="deleteSaved(name)">
+        </li>
+        <li>
+          <button type="button" class="choice" :aria-pressed="layout === 'custom'" :disabled="!hasCustomLayout" @click="chooseLayout('custom')">
+            <UiIcon name="sliders-horizontal" />
+            <span class="grid">
+              <b>Yours</b>
+              <small class="layout-help">{{ hasCustomLayout ? 'The widths you dragged the columns to' : 'Drag a column\'s edge to make one' }}</small>
+            </span>
+            <UiIcon v-if="layout === 'custom' && hasCustomLayout" name="check" class="ml-auto" />
+          </button>
+        </li>
+      </ul>
+    </BuilderPopover>
+    <BuilderPopover v-if="menu === 'open'" :anchor="menuAnchor" label="Open a strategy" @close="menu = null">
+      <p class="menu-heading">
+        Saved in this browser
+      </p>
+      <ul v-if="Object.keys(library).length" class="grid gap-0.5">
+        <li v-for="savedName in Object.keys(library)" :key="savedName" class="flex items-center gap-1">
+          <button type="button" class="choice" @click="openSaved(savedName)">
+            <UiIcon name="file-chart-line" /> {{ savedName }}
+          </button>
+          <button type="button" class="icon icon--small" v-tip="`Delete ${savedName}`" @click="deleteSaved(savedName)">
             <UiIcon name="trash-2" />
           </button>
         </li>
       </ul>
+      <p v-else class="layout-help">
+        Nothing saved yet: Save keeps a strategy here.
+      </p>
       <div class="menu-actions">
-        <button type="button" class="choice" @click="emit('startNew'); menu = null">
-          <UiIcon name="file-plus" /> Start a new strategy
-        </button>
-        <button type="button" class="choice" @click="download">
-          <UiIcon name="download" /> Download as a file
-        </button>
         <button type="button" class="choice" @click="fileInput?.click()">
           <UiIcon name="upload" /> Open a file
         </button>
         <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="openFile">
+      </div>
+    </BuilderPopover>
+    <BuilderPopover v-if="menu === 'save'" :anchor="menuAnchor" label="Save the strategy" @close="menu = null">
+      <form class="flex gap-2" @submit.prevent="saveAs">
+        <label class="sr-only" for="save-name">Name for this strategy</label>
+        <input id="save-name" v-model="saveName" class="text-input" placeholder="Name this strategy">
+        <button type="submit" class="small-button" :disabled="!saveName.trim()">
+          <UiIcon name="save" /> Save a copy
+        </button>
+      </form>
+      <p class="layout-help mt-1">
+        Your strategy saves itself every half minute; this keeps a copy under another name.
+      </p>
+      <div class="menu-actions">
+        <button type="button" class="choice" @click="download">
+          <UiIcon name="download" /> Download as a file
+        </button>
+        <button type="button" class="choice" @click="copyPine">
+          <UiIcon name="code" /> Copy as Pine Script for TradingView
+        </button>
+        <button type="button" class="choice" @click="downloadPine">
+          <UiIcon name="file-code" /> Download as Pine Script
+        </button>
       </div>
     </BuilderPopover>
   </header>
@@ -222,14 +327,74 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
   flex: 1;
 }
 
+/* The name reads as a title and edits in place: a faint field on hover, a clear one while typing. */
 .strategy-name {
-  overflow: hidden;
-  max-width: 22rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   border-left: 1px solid var(--panel-line);
-  padding-left: 0.9rem;
+  padding-left: 0.6rem;
+}
+
+.strategy-name input {
+  width: 22rem;
+  max-width: 34vw;
+  border-radius: 8px;
+  background: transparent;
+  padding: 0.3rem 1.8rem 0.3rem 0.4rem;
   font-weight: 700;
+  color: var(--panel-ink);
+  text-overflow: ellipsis;
+  transition: background-color 140ms, box-shadow 140ms;
+}
+
+.strategy-name input::placeholder {
+  color: var(--panel-soft);
+}
+
+.strategy-name:hover input {
+  background: var(--panel-fill);
+}
+
+.strategy-name input:focus {
+  background: var(--panel-fill);
+  box-shadow: inset 0 0 0 1.5px var(--focus);
+  outline: none;
+}
+
+.name-pencil {
+  position: absolute;
+  right: 0.5rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--panel-soft);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms;
+}
+
+.strategy-name:hover .name-pencil,
+.strategy-name input:focus + .name-pencil {
+  opacity: 1;
+}
+
+/* New, Open, Save and Share are one group of equally wide buttons. */
+.file-actions {
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 0.4rem;
+}
+
+/* A fixed width that fits "Copied" too, so nothing moves when Share answers. */
+.file-actions .control {
+  justify-content: center;
+  width: 6.25rem;
+}
+
+.control.is-copied {
+  color: var(--accent-ink);
+  box-shadow: inset 0 0 0 1.5px var(--accent-ink);
 }
 
 .control {
@@ -255,7 +420,9 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
 }
 
 .mode {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   gap: 2px;
   border-radius: 10px;
   background: var(--panel-fill);
@@ -275,6 +442,13 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
   background: var(--panel);
   color: var(--panel-ink);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.15), inset 0 0 0 1px var(--panel-line);
+}
+
+/* Advanced is a mode to notice: it is on in the accent colour. */
+.mode button.is-on[aria-checked="true"]:last-child {
+  background: var(--color-lime);
+  color: var(--color-ink);
+  box-shadow: none;
 }
 
 /* On a phone the two-word switch would push the bar onto a third row, so it becomes one button there. */
@@ -331,8 +505,39 @@ onBeforeUnmount(() => clearTimeout(noticeTimer))
   outline-offset: 2px;
 }
 
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--panel-soft);
+  transition: background-color 140ms, color 140ms;
+}
+
+.save-status:hover {
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+}
+
+.save-status.is-unsaved {
+  color: #f0a020;
+}
+
+.layout-help {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--panel-soft);
+}
+
 .notice {
+  max-width: 34rem;
   font-size: 13px;
+  line-height: 1.3;
+  text-align: right;
   font-weight: 600;
   color: var(--accent-ink);
 }

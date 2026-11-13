@@ -202,7 +202,8 @@ export function documentFromDraft(draft: StrategyDraft | unknown): StrategyDocum
     timeframe: strategy.timeframe,
     sides: strategy.sides.map(sideFromDraft),
     positionSizePct: strategy.position_size_pct,
-    execution: strategy.execution,
+    // Strategies saved before leverage existed trade without it.
+    execution: { ...strategy.execution, leverage: strategy.execution.leverage ?? 1 },
   }
 }
 

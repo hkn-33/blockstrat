@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { StrategyDraft } from '~/types/api'
 
-// The strategy exactly as the engine receives it, for whoever wants to look under the hood.
-const props = defineProps<{ strategy: StrategyDraft }>()
+// The strategy exactly as the engine receives it, for whoever wants to look under the hood, or as Pine Script
+// to run the same rules on TradingView.
+const props = defineProps<{ strategy: StrategyDraft, name: string }>()
 const emit = defineEmits<{ close: [] }>()
 
-const text = computed(() => serializeStrategy(props.strategy))
+const format = ref<'json' | 'pine'>('json')
+const text = computed(() => (format.value === 'json' ? serializeStrategy(props.strategy) : pineScript(props.strategy, props.name)))
 const copied = ref(false)
 
 async function copy(): Promise<void> {
@@ -16,20 +18,29 @@ async function copy(): Promise<void> {
 </script>
 
 <template>
-  <aside class="side" aria-label="Strategy JSON">
+  <aside class="side" aria-label="Strategy code">
     <div class="side-head">
-      <UiIcon name="file-json" />
-      <span class="font-bold">strategy.json</span>
+      <div class="formats" role="radiogroup" aria-label="Code format">
+        <button type="button" role="radio" :aria-checked="format === 'json'" :class="{ 'is-on': format === 'json' }" @click="format = 'json'">
+          <UiIcon name="file-json" /> strategy.json
+        </button>
+        <button type="button" role="radio" :aria-checked="format === 'pine'" :class="{ 'is-on': format === 'pine' }" @click="format = 'pine'">
+          <UiIcon name="file-code" /> Pine Script
+        </button>
+      </div>
       <button type="button" class="head-button ml-auto" @click="copy">
         {{ copied ? 'Copied' : 'Copy' }}
       </button>
-      <button type="button" class="head-button" aria-label="Close the JSON view" @click="emit('close')">
+      <button type="button" class="head-button" v-tip="'Close the JSON view'" @click="emit('close')">
         <UiIcon name="x" />
       </button>
     </div>
     <pre class="code">{{ text }}</pre>
-    <p class="foot">
+    <p v-if="format === 'json'" class="foot">
       <UiIcon name="shield-check" /> Checked against one schema; the engine never runs generated code
+    </p>
+    <p v-else class="foot">
+      <UiIcon name="info" /> Paste it into TradingView's Pine Editor and add it to the chart
     </p>
   </aside>
 </template>
@@ -66,6 +77,34 @@ async function copy(): Promise<void> {
   font-family: var(--font-sans);
   font-weight: 600;
   color: var(--panel-soft);
+}
+
+.formats {
+  display: inline-flex;
+  gap: 2px;
+  border-radius: 9px;
+  background: var(--panel-fill);
+  padding: 2px;
+}
+
+.formats button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 7px;
+  padding: 0.25rem 0.55rem;
+  font-weight: 700;
+  color: var(--panel-soft);
+}
+
+.formats button.is-on {
+  background: var(--panel);
+  color: var(--panel-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15), inset 0 0 0 1px var(--panel-line);
+}
+
+.formats button:focus-visible {
+  outline: 2px solid var(--focus);
 }
 
 .head-button:hover {

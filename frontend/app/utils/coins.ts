@@ -7,6 +7,7 @@ const COIN_ICONS: Record<string, string> = {
   XRP: 'xrp',
   ADA: 'cardano',
   DOGE: 'dogecoin',
+  AVAX: 'avalanche',
   LINK: 'chainlink',
   LTC: 'litecoin',
 }

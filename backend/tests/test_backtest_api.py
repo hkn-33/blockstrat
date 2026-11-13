@@ -84,6 +84,40 @@ def test_signal_on_a_bar_fills_at_the_next_bars_open(client: TestClient) -> None
     assert trade["exit_price"] == pytest.approx(90 - 1)
 
 
+def test_an_exit_rule_already_true_at_the_entry_waits_until_it_turns_true_again(market_data: FakeMarketData, client: TestClient) -> None:
+    # "Close above 103" already holds when the entry signals on bar 2; it lets go on bar 4 and holds again on bar 5.
+    market_data.frames[FIXTURE_SYMBOL] = make_bars([90, 95, 105, 110, 101, 108, 109, 107])
+
+    result = post_backtest(client, strategy(exit={"rule": close_crosses("gt", 103)}))["result"]
+
+    [trade] = result["trades"]
+    assert trade["entry_time"] == day(3)
+    # Closed on the open after bar 5, not on the open after the entry bar.
+    assert trade["exit_time"] == day(6)
+
+
+def test_leverage_multiplies_a_trades_gain_or_loss(client: TestClient) -> None:
+    plain = post_backtest(client, strategy())["result"]["metrics"]["total_return_pct"]
+    doubled = post_backtest(client, strategy(execution={"commission_pct": 0, "slippage_bps": 0, "leverage": 2}))["result"]["metrics"]["total_return_pct"]
+
+    # The one trade buys at 109 and sells at 89: about -18% on the cash, about -37% with twice the position.
+    assert plain == pytest.approx((89 / 109 - 1) * 100, abs=0.1)
+    assert doubled == pytest.approx(2 * plain, abs=0.5)
+
+
+def test_a_loss_larger_than_the_account_wipes_it_out(client: TestClient) -> None:
+    result = post_backtest(client, strategy(execution={"commission_pct": 0, "slippage_bps": 0, "leverage": 10}))["result"]
+
+    assert result["metrics"]["total_return_pct"] == pytest.approx(-100)
+
+
+@pytest.mark.parametrize("leverage", [0.5, 11])
+def test_rejects_leverage_out_of_range(client: TestClient, leverage: float) -> None:
+    response = client.post("/api/backtest", json={"strategy": strategy(execution={"leverage": leverage}), "mode": "full"})
+
+    assert response.status_code == 422
+
+
 def test_commission_and_slippage_lower_the_result(client: TestClient) -> None:
     free = post_backtest(client, strategy())["result"]["metrics"]["total_return_pct"]
     costly = post_backtest(
@@ -227,6 +261,17 @@ def test_buy_and_hold_and_metrics_match_hand_computed_values(client: TestClient)
     assert len(result["bars"]) == len(CROSSING_CLOSES)
 
 
+def test_reports_the_statistics_advanced_mode_shows(client: TestClient) -> None:
+    metrics = post_backtest(client, strategy())["result"]["metrics"]
+
+    # The one trade: in on day 3, out on day 5, about -18%.
+    assert metrics["avg_trade_pct"] == pytest.approx((89 / 109 - 1) * 100, abs=0.1)
+    assert metrics["avg_trade_hours"] == pytest.approx(48)
+    assert metrics["profit_factor"] in (0, None)
+    for key in ("annual_return_pct", "sortino_ratio", "calmar_ratio", "max_drawdown_days"):
+        assert key in metrics
+
+
 def test_strategy_without_trades_has_empty_trade_list(client: TestClient) -> None:
     result = post_backtest(client, strategy(entry={"condition": close_crosses("gt", 1000)}))["result"]
 
@@ -246,17 +291,17 @@ def test_lists_instruments_timeframes_and_presets(client: TestClient) -> None:
 
 def test_long_history_is_merged_for_charts_but_not_for_metrics(market_data: FakeMarketData, client: TestClient) -> None:
     # Triangle wave 90 -> 110 -> 90 every 40 bars: one profitable trade per wave.
-    closes = [110.0 - abs((bar % 40) - 20) for bar in range(12_000)]
+    closes = [110.0 - abs((bar % 40) - 20) for bar in range(24_000)]
     market_data.frames[FIXTURE_SYMBOL] = make_bars(closes)
     wave_strategy = strategy(exit={"rule": close_crosses("crosses_below", 105)})
 
     result = post_backtest(client, wave_strategy, mode="full")["result"]
 
-    assert result["bar_count"] == 12_000
-    assert len(result["bars"]) <= 5000
+    assert result["bar_count"] == 24_000
+    assert len(result["bars"]) <= 10_000
     assert len(result["equity"]) == len(result["bars"]) == len(result["buy_and_hold"])
     assert result["bars"][0]["time"] == result["start_time"]
-    assert result["metrics"]["trade_count"] == 300
+    assert result["metrics"]["trade_count"] == 600
 
 
 def test_buys_fractions_of_an_expensive_instrument(market_data: FakeMarketData, client: TestClient) -> None:
@@ -381,3 +426,19 @@ def test_unexpected_error_still_carries_cors_headers() -> None:
 
     assert response.status_code == 500
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+
+
+# ---------- Periods ----------
+
+
+def test_a_period_tests_only_its_last_stretch_of_history(client: TestClient, market_data: FakeMarketData) -> None:
+    closes = [90.0, 110.0] * 200
+    market_data.frames[FIXTURE_SYMBOL] = make_bars(closes)
+
+    whole = client.post("/api/backtest", json={"strategy": strategy(), "mode": "full"}).json()["result"]
+    recent = client.post("/api/backtest", json={"strategy": strategy(), "mode": "full", "period": "3m"}).json()["result"]
+
+    # Daily candles: three months is about 91 of them, all at the end of the history.
+    assert 89 <= recent["bar_count"] <= 93
+    assert recent["end_time"] == whole["end_time"]
+    assert recent["metrics"]["trade_count"] < whole["metrics"]["trade_count"]

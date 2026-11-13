@@ -102,8 +102,6 @@ function matches(pair: string): boolean {
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
 }
 
 .search {

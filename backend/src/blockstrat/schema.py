@@ -205,6 +205,8 @@ class Exit(FrozenModel):
 class ExecutionModel(FrozenModel):
     commission_pct: float = Field(default=0.1, ge=0, le=5)
     slippage_bps: float = Field(default=5, ge=0, le=500)
+    # The position is this many times what the account holds; a loss as large as the account wipes it out.
+    leverage: float = Field(default=1, ge=1, le=10)
 
 
 class SideDraft(FrozenModel):
@@ -340,11 +342,14 @@ class Strategy(FrozenModel):
 # ---------- Backtest API ----------
 
 BacktestMode = Literal["preview", "full"]
+# How much of the latest history a full backtest covers: three or six months, one or three years, or all of it.
+BacktestPeriod = Literal["3m", "6m", "1y", "3y", "all"]
 
 
 class BacktestRequest(BaseModel):
     strategy: StrategyDraft
     mode: BacktestMode = "preview"
+    period: BacktestPeriod = "all"
 
 
 class TimePoint(BaseModel):
@@ -379,6 +384,14 @@ class Metrics(BaseModel):
     win_rate_pct: float | None
     trade_count: int
     exposure_time_pct: float
+    # Advanced mode's further statistics; None where they cannot be computed, e.g. without a closed trade.
+    annual_return_pct: float | None = None
+    sortino_ratio: float | None = None
+    calmar_ratio: float | None = None
+    profit_factor: float | None = None
+    avg_trade_pct: float | None = None
+    avg_trade_hours: float | None = None
+    max_drawdown_days: float | None = None
 
 
 class SideResult(BaseModel):
