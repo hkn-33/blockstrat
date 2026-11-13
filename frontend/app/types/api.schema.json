@@ -6,17 +6,31 @@
           "enum": [
             "rate_limited",
             "unavailable",
-            "invalid"
+            "invalid",
+            "busy"
           ],
           "type": "string"
         },
         "message": {
           "type": "string"
+        },
+        "retry_after_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With busy: how long to wait before asking again"
         }
       },
       "required": [
         "status",
-        "message"
+        "message",
+        "retry_after_seconds"
       ],
       "title": "AiBuildFailed",
       "type": "object"

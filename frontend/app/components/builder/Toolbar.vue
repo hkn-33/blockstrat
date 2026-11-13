@@ -218,11 +218,10 @@ onBeforeUnmount(() => {
         <UiIcon :name="isLinkCopied ? 'check' : 'share-2'" /> <span class="label">{{ isLinkCopied ? 'Copied' : 'Share' }}</span>
       </button>
     </div>
-    <ClientOnly>
-      <button type="button" class="icon" v-tip="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-        <UiIcon :name="isDark ? 'sun' : 'moon'" />
-      </button>
-    </ClientOnly>
+    <!-- The builder is rendered in the browser only, so the button is there from the first frame. -->
+    <button type="button" class="icon" v-tip="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
+      <UiIcon :name="isDark ? 'sun' : 'moon'" />
+    </button>
 
 
     <BuilderPopover v-if="menu === 'layout'" :anchor="layoutAnchor" label="Layout" @close="menu = null">

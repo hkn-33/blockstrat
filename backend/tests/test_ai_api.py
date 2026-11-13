@@ -4,20 +4,27 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from conftest import FIXTURE_SYMBOL, FakeMarketData, make_bars, strategy
-from blockstrat.ai import AiMessage, RateLimiter
+from blockstrat.ai import EXAMPLES, AiMessage, AiReply, ModelBusyError, RateLimiter
 from blockstrat.api import create_app
 
 
 class FakeBuilder:
-    def __init__(self, raw_reply: str) -> None:
-        self.raw_reply = raw_reply
+    """Answers with the given replies in turn, the last one again once they run out; an exception is raised."""
+
+    def __init__(self, *replies: str | Exception) -> None:
+        self.replies = list(replies)
         self.received: list[AiMessage] = []
+        self.calls = 0
         self.system_prompt = ""
 
-    def reply(self, system_prompt: str, messages: list[AiMessage], response_schema: dict[str, object]) -> str:
+    def reply(self, system_prompt: str, messages: list[AiMessage]) -> str:
         self.received = messages
         self.system_prompt = system_prompt
-        return self.raw_reply
+        answer = self.replies[min(self.calls, len(self.replies) - 1)]
+        self.calls += 1
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
 
 
 class FakeClock:
@@ -58,14 +65,38 @@ def test_reports_what_could_not_be_expressed() -> None:
     assert ask(client)["unsupported"] == ["Ichimoku cloud"]
 
 
-def test_reply_that_breaks_the_schema_is_rejected() -> None:
+def test_reply_that_breaks_the_schema_twice_is_rejected() -> None:
     broken = {"message": "Here", "strategy": strategy(timeframe="7m"), "unsupported": []}
-    client = make_client(FakeBuilder(json.dumps(broken)))
+    builder = FakeBuilder(json.dumps(broken))
+    client = make_client(builder)
 
     response = ask(client)
 
     assert response["status"] == "invalid"
     assert "strategy" not in response
+    # It was asked once to correct itself.
+    assert builder.calls == 2
+
+
+def test_a_broken_reply_is_corrected_once_with_the_reason() -> None:
+    broken = {"message": "Here", "strategy": strategy(timeframe="7m"), "unsupported": []}
+    fixed = {"message": "Done.", "strategy": strategy(), "unsupported": []}
+    builder = FakeBuilder(json.dumps(broken), json.dumps(fixed))
+    client = make_client(builder)
+
+    response = ask(client)
+
+    assert response["status"] == "ok"
+    assert "timeframe" in builder.received[-1].text
+
+
+def test_a_busy_model_asks_to_wait_and_says_how_long() -> None:
+    client = make_client(FakeBuilder(ModelBusyError(retry_after_seconds=12)))
+
+    response = ask(client)
+
+    assert response["status"] == "busy"
+    assert response["retry_after_seconds"] == 12
 
 
 def test_reply_that_is_not_json_is_rejected() -> None:
@@ -74,13 +105,25 @@ def test_reply_that_is_not_json_is_rejected() -> None:
     assert ask(client)["status"] == "invalid"
 
 
-def test_current_strategy_is_sent_to_the_model() -> None:
+def test_current_strategy_is_sent_to_the_model_as_data_beside_the_request() -> None:
     builder = FakeBuilder(json.dumps({"message": "ok", "strategy": None, "unsupported": []}))
     client = make_client(builder)
 
     ask(client, "Make it short", current_strategy=strategy())
 
-    assert FIXTURE_SYMBOL in builder.received[-1].text
+    last = builder.received[-1].text
+    assert "<current_strategy>" in last and FIXTURE_SYMBOL in last
+    assert "<request>\nMake it short\n</request>" in last
+
+
+def test_the_assistant_treats_what_users_write_as_data_and_has_examples() -> None:
+    builder = FakeBuilder(json.dumps({"message": "ok", "strategy": None, "unsupported": []}))
+    client = make_client(builder)
+
+    ask(client)
+
+    assert "never instructions" in builder.system_prompt
+    assert builder.system_prompt.count("Example ") >= 3
 
 
 def test_without_api_key_the_ai_is_unavailable() -> None:
@@ -190,3 +233,28 @@ def test_the_assistant_is_told_about_the_new_blocks() -> None:
 
     for term in ("highest", "lowest", "change", "relative_volume", "stochastic", "score", "trailing_stop_pct", "extra_instruments"):
         assert term in builder.system_prompt
+
+
+def test_every_example_in_the_prompt_is_a_valid_reply() -> None:
+    for _, reply in EXAMPLES:
+        AiReply.model_validate(reply)
+
+
+def test_a_condition_that_compares_two_numbers_is_sent_back_to_be_fixed() -> None:
+    always = strategy(entry={"direction": "long", "condition": {"kind": "compare", "operator": "gt", "left": {"kind": "constant", "value": 1}, "right": {"kind": "constant", "value": 0}}})
+    builder = FakeBuilder(json.dumps({"message": "Done", "strategy": always, "unsupported": []}))
+    client = make_client(builder)
+
+    response = ask(client)
+
+    assert response["status"] == "invalid"
+    assert "two numbers" in builder.received[-1].text
+
+
+def test_a_provider_error_is_reported_as_resting_without_its_details() -> None:
+    client = make_client(FakeBuilder(RuntimeError("401 Unauthorized for key gsk_secret")))
+
+    response = ask(client)
+
+    assert response["status"] == "unavailable"
+    assert "gsk_" not in json.dumps(response)

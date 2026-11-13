@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AiMessage, StrategyDraft } from '~/types/api'
+import type { AiBuildResponse } from '~/composables/useApi'
 
 // The assistant beside the results: describe a strategy, or paste one written elsewhere (another AI's
 // answer, a forum post), get it back as tiles, apply it with one click (undo brings the old one back), and
@@ -38,6 +39,35 @@ const inputField = ref<HTMLTextAreaElement | null>(null)
 const pasteNote = ref('')
 const isThinking = ref(false)
 const failure = ref<string | null>(null)
+
+// When the model is out of capacity the request waits its turn, counting down, and goes again by itself,
+// a few times at most; the user can stop waiting.
+const MAX_WAITS = 3
+const waitSeconds = ref(0)
+let isWaitCancelled = false
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+async function askWaitingIfBusy(history: AiMessage[]): Promise<AiBuildResponse> {
+  isWaitCancelled = false
+  for (let wait = 0; ; wait++) {
+    const response = await api.buildStrategy(history, props.currentStrategy)
+    if (response.status !== 'busy' || wait >= MAX_WAITS) return response
+    waitSeconds.value = response.retry_after_seconds ?? 20
+    while (waitSeconds.value > 0 && !isWaitCancelled) {
+      await sleep(1000)
+      waitSeconds.value--
+    }
+    waitSeconds.value = 0
+    if (isWaitCancelled) return { ...response, message: 'Stopped waiting. Send it again when you like.' }
+  }
+}
+
+function stopWaiting(): void {
+  isWaitCancelled = true
+}
 const body = ref<HTMLDivElement | null>(null)
 
 const lastAnswer = computed(() => {
@@ -61,7 +91,7 @@ async function send(text = input.value): Promise<void> {
   try {
     // Only the last few turns: enough context for refinements, cheap on the free tier.
     const history: AiMessage[] = turns.value.slice(-8).map(turn => ({ role: turn.role, text: turn.text }))
-    const response = await api.buildStrategy(history, props.currentStrategy)
+    const response = await askWaitingIfBusy(history)
     if (response.status !== 'ok') {
       failure.value = response.message
       turns.value.pop()
@@ -109,7 +139,7 @@ function onKeydown(event: KeyboardEvent): void {
 <template>
   <aside class="side" aria-label="Strategy assistant">
     <div class="side-head">
-      <img src="/brand-icons/gemini.svg" alt="" class="h-5 w-5">
+      <span class="ai-mark" aria-hidden="true"><UiIcon name="sparkles" /></span>
       <span class="font-bold">Strategy assistant</span>
       <button type="button" class="close" v-tip="'Close the assistant'" @click="emit('close')">
         <UiIcon name="x" />
@@ -154,7 +184,17 @@ function onKeydown(event: KeyboardEvent): void {
         </div>
       </template>
 
-      <p v-if="isThinking" class="thinking" role="status">
+      <div v-if="isThinking && waitSeconds > 0" class="waiting" role="status">
+        <span class="waiting-spinner" aria-hidden="true" />
+        <span class="min-w-0">
+          <b>The AI is busy right now</b>
+          <small>Your request waits its turn: trying again in {{ waitSeconds }} s</small>
+        </span>
+        <button type="button" class="waiting-stop" @click="stopWaiting">
+          Stop
+        </button>
+      </div>
+      <p v-else-if="isThinking" class="thinking" role="status">
         Building your rules
       </p>
       <p v-if="failure" class="failure" role="alert">
@@ -356,6 +396,76 @@ function onKeydown(event: KeyboardEvent): void {
 
 .thinking {
   color: var(--panel-soft);
+}
+
+.ai-mark {
+  display: grid;
+  width: 1.6rem;
+  height: 1.6rem;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+.ai-mark svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.waiting {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 12px;
+  background: var(--panel-fill);
+  padding: 0.65rem 0.8rem;
+  font-size: 13px;
+}
+
+.waiting b,
+.waiting small {
+  display: block;
+}
+
+.waiting small {
+  color: var(--panel-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.waiting-spinner {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  border: 2px solid var(--panel-line);
+  border-top-color: var(--color-lime);
+  border-radius: 999px;
+  animation: waiting-spin 800ms linear infinite;
+}
+
+@keyframes waiting-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.waiting-stop {
+  margin-left: auto;
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  font-weight: 700;
+  color: var(--panel-soft);
+  box-shadow: inset 0 0 0 1px var(--panel-line);
+}
+
+.waiting-stop:hover {
+  color: var(--panel-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waiting-spinner {
+    animation-duration: 2s;
+  }
 }
 
 .failure {

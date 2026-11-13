@@ -9,7 +9,6 @@ requires-python = ">=3.12"
 dependencies = [
     "backtesting>=0.6.6",
     "fastapi>=0.162.2",
-    "google-genai>=3.0.0",
     "httpx>=0.28.1",
     "pandas<3",
     "pydantic>=2.14.3",
