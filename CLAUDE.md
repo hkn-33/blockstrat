@@ -36,10 +36,10 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - Folder-level only, one line per entry. Don't list individual files.
 
 ### Folders
-- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), strategies suggested from trades marked on a chart, AI strategy builder (Gemini).
+- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), strategies suggested from trades marked on a chart, AI strategy builder (Groq).
 - `backend/src/blockstrat/`: the backend package.
 - `backend/scripts/`: one-off data scripts (the landing page's precomputed demo backtests, candles and trades).
-- `backend/tests/`: API-level tests (pytest) with fixture market data and a fake Gemini client.
+- `backend/tests/`: API-level tests (pytest) with fixture market data and a fake AI client.
 - `frontend/`: Nuxt + Tailwind app: prerendered landing page (`/`) and the client-only builder panel (`/app`).
 - `frontend/app/pages/`: the landing page and the builder panel.
 - `frontend/app/components/`: pieces shared by the landing page and the builder (TradingView-style chart, strategy tester, rule tile, logo, icons).

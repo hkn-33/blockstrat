@@ -488,7 +488,11 @@ function boxStyle(place: BoxPlace, part: 'target' | 'stop'): Record<string, stri
 }
 
 .demo-chip {
-  translate: -50% calc(-100% - 6px);
+  z-index: 2;
+  translate: -50% calc(-100% - 9px);
+  /* A ring of the panel's colour cuts the chip out of the candles behind it. */
+  box-shadow: 0 0 0 2px var(--panel), 0 4px 10px -2px rgb(0 0 0 / 0.5);
+
   border-radius: 6px;
   background: #26a69a;
   padding: 0.05rem 0.4rem;
@@ -743,7 +747,10 @@ function boxStyle(place: BoxPlace, part: 'target' | 'stop'): Record<string, stri
 
 .demo-path-chip {
   position: absolute;
-  translate: -50% calc(-100% - 7px);
+  translate: -50% calc(-100% - 9px);
+  /* A ring of the panel's colour cuts the chip out of the candles behind it. */
+  box-shadow: 0 0 0 2px var(--panel), 0 4px 10px -2px rgb(0 0 0 / 0.5);
+
   border-radius: 6px;
   padding: 0.05rem 0.35rem;
   font-size: 11px;

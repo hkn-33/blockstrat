@@ -674,8 +674,12 @@ export interface AiBuildOk {
  * via the `definition` "AiBuildFailed".
  */
 export interface AiBuildFailed {
-  status: "rate_limited" | "unavailable" | "invalid";
+  status: "rate_limited" | "unavailable" | "invalid" | "busy";
   message: string;
+  /**
+   * With busy: how long to wait before asking again
+   */
+  retry_after_seconds: number | null;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema

@@ -137,11 +137,12 @@ const FAQ = [
           <a href="#faq" class="nav-link">Questions</a>
         </nav>
         <div class="flex items-center gap-2">
-          <ClientOnly>
-            <button type="button" class="theme-toggle" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-              <UiIcon :name="isDark ? 'sun' : 'moon'" />
-            </button>
-          </ClientOnly>
+          <!-- In the prerendered page from the start, so nothing beside it moves: both icons are there and the
+               theme class, set before the first paint, shows the right one. -->
+          <button type="button" class="theme-toggle" aria-label="Switch between light and dark mode" @click="toggleTheme">
+            <UiIcon name="sun" class="theme-icon theme-icon--sun" />
+            <UiIcon name="moon" class="theme-icon theme-icon--moon" />
+          </button>
           <NuxtLink to="/app" class="btn btn-lime btn-small">
             Open the builder
           </NuxtLink>
@@ -427,7 +428,7 @@ const FAQ = [
                 <img src="/brand-icons/binance.svg" alt="" class="footer-icon"> Binance market data
               </li>
               <li class="flex items-center gap-2">
-                <img src="/brand-icons/gemini.svg" alt="" class="footer-icon"> Gemini for the assistant
+                <UiIcon name="sparkles" class="footer-icon" /> Groq for the assistant
               </li>
               <li>Python backtests, Nuxt front end</li>
               <li>1h, 4h and 1d candles since 2017</li>
@@ -536,6 +537,15 @@ const FAQ = [
 
 .nav.is-compact {
   padding-top: 0.6rem;
+}
+
+.lp .theme-icon--sun,
+:root.dark .lp .theme-icon--moon {
+  display: none;
+}
+
+:root.dark .lp .theme-icon--sun {
+  display: inline-flex;
 }
 
 .nav.is-compact .nav-bar {
