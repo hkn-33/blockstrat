@@ -1,17 +1,12 @@
-<script setup lang="ts">
-withDefaults(defineProps<{ inverted?: boolean }>(), { inverted: false })
-</script>
-
 <template>
-  <span class="brand-logo" :class="{ 'is-inverted': inverted }">
-    <!-- Three snapping blocks that rise like a chart: building a strategy and its result in one mark. -->
+  <span class="brand-logo">
+    <!-- A builder block, notch on top and tab below, with a result line rising inside it: blocks in, a test out. -->
     <svg viewBox="0 0 32 32" class="brand-logo__mark" aria-hidden="true">
-      <rect x="2" y="19" width="8" height="11" rx="2" class="block block--low" />
-      <rect x="4.5" y="16.5" width="3" height="3" rx="1" class="block block--low" />
-      <rect x="12" y="12" width="8" height="18" rx="2" class="block block--mid" />
-      <rect x="14.5" y="9.5" width="3" height="3" rx="1" class="block block--mid" />
-      <rect x="22" y="5" width="8" height="25" rx="2" class="block block--top" />
-      <rect x="24.5" y="2.5" width="3" height="3" rx="1" class="block block--top" />
+      <path
+        class="mark-block"
+        d="M6 7h3l1.5 2.2h3L15 7h11q3 0 3 3v14q0 3-3 3H15l-1.5 2.2h-3L9 27H6q-3 0-3-3V10q0-3 3-3z"
+      />
+      <polyline class="mark-line" points="8,21 12.5,16.5 16.5,19.5 24,12" />
     </svg>
     <span class="brand-logo__word">BlockStrat</span>
   </span>
@@ -25,38 +20,26 @@ withDefaults(defineProps<{ inverted?: boolean }>(), { inverted: false })
   color: var(--logo-ink, #0d1b24);
 }
 
-.brand-logo.is-inverted {
-  color: #ffffff;
-}
-
 .brand-logo__mark {
   width: 1.75rem;
   height: 1.75rem;
 }
 
-.block {
-  fill: currentColor;
+/* Ink block with a lime line on light grounds; a lime block with a dark line on dark ones. */
+.mark-block {
+  fill: var(--logo-block, var(--color-ink));
 }
 
-.block--low {
-  opacity: 0.35;
-}
-
-.block--mid {
-  opacity: 0.65;
-}
-
-/* The tallest block is the brand's accent: lime on dark grounds, the gain green on light ones. */
-.block--top {
-  fill: var(--logo-accent, var(--color-gain));
-}
-
-.is-inverted .block--top {
-  fill: var(--logo-accent, var(--color-lime));
+.mark-line {
+  fill: none;
+  stroke: var(--logo-line, var(--color-lime));
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .brand-logo__word {
-  font-size: 1.3rem;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }

@@ -13,6 +13,7 @@
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
+    "@nuxt/fonts": "^1.2.0",
     "@nuxtjs/color-mode": "^4.1.0",
     "@tailwindcss/vite": "^4.3.5",
     "@vue-flow/background": "^1.3.2",
