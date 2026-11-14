@@ -5,85 +5,90 @@
 <h1 align="center">BlockStrat</h1>
 
 <p align="center">
-  Build a crypto trading strategy from blocks, or describe it in a sentence, and see how it would have done on real Binance prices.
+  <strong>Test a trading idea before you risk money on it.</strong>
   <br>
-  <a href="https://blockstrat.vercel.app"><strong>blockstrat.vercel.app</strong></a> · Beta · Free for personal use · AGPL-3.0
+  Build a crypto strategy from blocks, or just describe it, and see how it would have done on years of real Binance prices.
+  <br><br>
+  <a href="https://blockstrat.vercel.app"><strong>Open BlockStrat →</strong></a>
+  <br>
+  Beta · Free for personal use · No sign-up · Open source (AGPL-3.0)
 </p>
 
 ![The BlockStrat landing page](docs/images/landing.png)
 
-## What it does
+## Why it exists
 
-- **Blocks, not code.** A strategy is a market, a timeframe, a rule to buy and a rule to sell, snapped together from blocks: SMA, EMA, RSI, MACD, Bollinger Bands, Stochastic, highs and lows, price change and volume, with and/or groups, stop-loss, take-profit and trailing stops, long and short sides.
-- **Backtests on real prices.** Hourly, 4-hour and daily candles of ten large crypto pairs from Binance, back to 2017. Every change replays the test in well under a second, on several markets at once.
-- **Honest numbers.** Orders fill at the next bar's open, so nothing peeks into the future, and commission and slippage are counted on every trade.
-- **AI assistant.** Describe an idea in plain words and the assistant (a Groq-hosted model) answers with editable blocks, never code. It says so when you ask for something the engine cannot do.
-- **Mark trades on a chart.** Draw the trades you would have taken and get strategies whose rules would have taken similar ones.
-- **Save, share, export.** Strategies stay in your browser, download as JSON, export to TradingView Pine Script, and share as a link that opens with the result.
+Most trading ideas sound good in a video or a tweet: "buy when RSI drops below 30", "follow the golden cross". Very few people check them before putting money in, because checking means writing code or clicking through a spreadsheet for hours.
 
-![The builder: blocks in the middle, the backtest result on three markets on the right](docs/images/builder.png)
+BlockStrat does the checking for you in seconds. You put the idea together from blocks you can read, it replays the idea on real past prices, fees included, and tells you plainly what would have happened: how much you would have made or lost, how deep the worst drop was, and whether simply buying and holding the coin would have done better.
 
-BlockStrat never places orders, never connects to an exchange and is not investment advice. Results are simulations on past prices.
+It helps you to:
 
-## Beta limits
+- **Drop bad ideas cheaply.** Find out that a "sure thing" lost 30% over the last year on the coin you wanted to trade, before it costs you anything.
+- **See the real cost of trading.** Every trade pays commission and slippage, so a strategy that trades too often shows up as the fee machine it is.
+- **Know the pain before the gain.** The worst drop from a high is shown next to the return, so you know whether you could actually sit through it.
+- **Check whether it only worked by luck.** Run the same rules on several coins at once and see if they hold up or only fit one chart.
+- **Learn what the indicators mean.** Every block has a plain explanation and a chart that shows what it measures.
 
-The hosted site limits each visitor to **10 assistant messages an hour** (and a daily total for everyone), plus generous hourly limits on backtests, charts and strategy searches. Self-hosted, every limit is an environment variable (see [backend/.env.example](backend/.env.example)).
+BlockStrat never places orders, never asks for exchange keys and never touches your money. It is a simulator, not investment advice.
 
-## Architecture
+## How it works
 
-```
-Nuxt 4 + Tailwind (Vercel)          ──HTTPS──▶   FastAPI (VPS, Coolify)
-  /         landing page (prerendered)             strategy schema (Pydantic) ──▶ JSON Schema ──▶ TS types
-  /app      builder (Vue Flow, lightweight-charts) Binance klines ──▶ parquet cache
-  /terms    /privacy                               backtesting.py engine (ADR 0002)
-                                                   Groq structured output, rate limits per IP
-```
+### 1. Pick an idea, or start from a popular one
 
-Domain terms: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr](docs/adr).
+Name your idea and build it from scratch, describe it to the assistant, open a saved one, or start from one of eight well-known strategies: trend with an RSI filter, golden cross, RSI dip in an uptrend, MACD momentum, Bollinger bounce, breakout with volume, two of three agree, and trend both ways.
 
-## Run locally
+![Starting a new strategy: build from blank, describe it, open a file, or pick a popular strategy](docs/images/templates.png)
 
-Requirements: [uv](https://docs.astral.sh/uv/) and Node.js 22+.
+### 2. Snap the rules together
 
-```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-```
+A strategy is a few cards: which markets to test on and how often to check the rules, when to buy, and when to sell. Conditions are readable sentences such as *SMA 20 crosses above SMA 50* or *RSI 14 is below 70*, grouped with "all", "any" or "at least N". Add a stop-loss, a take-profit or a trailing stop, and a short side if you want to profit when prices fall.
 
-Put a free Groq key from [console.groq.com/keys](https://console.groq.com/keys) in `backend/.env` for the assistant; everything else works without it.
+![A strategy being built on screen, block by block](docs/images/build-demo.gif)
 
-```bash
-cd backend && uv run uvicorn blockstrat.api:create_default_app --factory --port 8000
-```
+### 3. Read the verdict
 
-```bash
-cd frontend && npm install && npm run dev
-```
+The result updates with every change, in well under a second. You see the profit or loss from a $10,000 start, the number of trades and how many were profitable, the biggest drop, every trade on the price chart, and how the same rules did on each market you picked, side by side with simply holding the coin.
 
-Open http://localhost:3000 for the landing page and http://localhost:3000/app for the builder. On its first start the backend downloads the Binance price history (about a minute) and caches it in `backend/data/`.
+![The builder with a strategy tested on Solana, Bitcoin and Ethereum, compared side by side](docs/images/builder.png)
 
-## Tests
+The same rules can win on one coin and lose on the next, so testing on several at once is built in:
 
-```bash
-cd backend && uv run pytest
-```
+![The same strategy on Solana, Chainlink and Cardano: one profitable, two not](docs/images/markets.png)
 
-```bash
-cd frontend && npm test && npm run typecheck
-```
+## Describe it instead
 
-After changing the backend schema, regenerate the frontend types:
+Not sure which blocks you need? Write the idea the way you would text a friend, or paste a strategy from another AI. The assistant turns it into the same blocks you would snap together, never hidden code, so you can check every rule it set and change any of them. When you ask for something the engine cannot do, it says so instead of guessing.
 
-```bash
-cd frontend && npm run gen:types
-```
+![The assistant demo: a sentence in, editable blocks and a backtest out](docs/images/assistant-demo.gif)
 
-## Deploy
+![The assistant in the builder, answering with a buy and a sell rule for Ethereum](docs/images/assistant.png)
 
-Backend on Coolify, frontend on Vercel, both deploying `main` on push: see [docs/deployment.md](docs/deployment.md).
+During the beta the assistant answers up to **10 messages an hour** per visitor.
+
+## Mark trades, get the rules
+
+You know a good trade when you see one. Draw a few on the chart, long or short, the way you would on TradingView: click the entry, click the target, and the stop-loss follows the reward-to-risk you like. BlockStrat tries hundreds of rules and pairs of rules, keeps the ones that would have taken similar trades, and tests each on years of candles, so a rule that only fits your drawing shows it.
+
+![Marking three trades on a SOL/USDT chart and finding the strategy behind them](docs/images/mark-trades-demo.gif)
+
+## Honest numbers
+
+- **No peeking into the future.** A signal on a candle's close buys at the next candle's open, the price you could really have got.
+- **Fees on every trade.** 0.1% commission a side and 0.05% slippage per fill by default, or your exchange's own numbers.
+- **Real prices.** Hourly, 4-hour and daily candles of ten large crypto pairs from Binance (BTC, ETH, BNB, SOL, XRP, ADA, DOGE, AVAX, LINK, LTC), back to 2017.
+- **The bad parts in plain sight.** The worst drop, the losing trades and the comparison with holding are shown as prominently as the profit.
+
+## Keep, share and take it further
+
+- Strategies are saved in your browser automatically, with undo and redo.
+- Download a strategy as a file and open it later, or send a link that opens with the blocks and the result.
+- Export the rules as a TradingView Pine Script strategy and paste them into TradingView's Pine Editor.
+
+## Pricing
+
+BlockStrat is in beta and free for personal use, with no account. Using it for a business, such as a fund, a trading firm or a paid course, needs an agreement: write to hakendev@gmail.com.
 
 ## License
 
-The code is licensed under the [GNU Affero General Public License v3.0](LICENSE), the license of its backtest engine, [backtesting.py](https://github.com/kernc/backtesting.py). You may use, change and share it; if you run a changed version as a service, you must publish your changes under the same license.
-
-The hosted site at [blockstrat.vercel.app](https://blockstrat.vercel.app) is free for personal use; business use needs an agreement, see its [Terms of Service](https://blockstrat.vercel.app/terms). The BlockStrat name and logo are not covered by the code license.
+The code is open source under the [GNU Affero General Public License v3.0](LICENSE), the license of the backtest engine it uses, [backtesting.py](https://github.com/kernc/backtesting.py). You may use, change and share it; if you run a changed version as a service, you must publish your changes under the same license. The BlockStrat name and logo are not covered by the license. The hosted site has its own [Terms of Service](https://blockstrat.vercel.app/terms) and [Privacy Policy](https://blockstrat.vercel.app/privacy).
