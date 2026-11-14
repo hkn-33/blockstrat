@@ -6,17 +6,31 @@
           "enum": [
             "rate_limited",
             "unavailable",
-            "invalid"
+            "invalid",
+            "busy"
           ],
           "type": "string"
         },
         "message": {
           "type": "string"
+        },
+        "retry_after_seconds": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With busy: how long to wait before asking again"
         }
       },
       "required": [
         "status",
-        "message"
+        "message",
+        "retry_after_seconds"
       ],
       "title": "AiBuildFailed",
       "type": "object"
@@ -95,7 +109,7 @@
           "type": "string"
         },
         "text": {
-          "maxLength": 2000,
+          "maxLength": 6000,
           "minLength": 1,
           "type": "string"
         }
@@ -122,7 +136,8 @@
                 "and": "#/$defs/AllOf",
                 "compare": "#/$defs/Comparison",
                 "not": "#/$defs/Negation",
-                "or": "#/$defs/AnyOf"
+                "or": "#/$defs/AnyOf",
+                "score": "#/$defs/Score"
               },
               "propertyName": "kind"
             },
@@ -138,6 +153,9 @@
               },
               {
                 "$ref": "#/$defs/Negation"
+              },
+              {
+                "$ref": "#/$defs/Score"
               }
             ]
           },
@@ -167,7 +185,8 @@
                 "and": "#/$defs/AllOf",
                 "compare": "#/$defs/Comparison",
                 "not": "#/$defs/Negation",
-                "or": "#/$defs/AnyOf"
+                "or": "#/$defs/AnyOf",
+                "score": "#/$defs/Score"
               },
               "propertyName": "kind"
             },
@@ -183,6 +202,9 @@
               },
               {
                 "$ref": "#/$defs/Negation"
+              },
+              {
+                "$ref": "#/$defs/Score"
               }
             ]
           },
@@ -207,6 +229,17 @@
           "enum": [
             "preview",
             "full"
+          ],
+          "type": "string"
+        },
+        "period": {
+          "default": "all",
+          "enum": [
+            "3m",
+            "6m",
+            "1y",
+            "3y",
+            "all"
           ],
           "type": "string"
         }
@@ -261,6 +294,16 @@
         },
         "metrics": {
           "$ref": "#/$defs/Metrics"
+        },
+        "sides": {
+          "items": {
+            "$ref": "#/$defs/SideResult"
+          },
+          "type": "array"
+        },
+        "both_signalled": {
+          "description": "Candles where both sides signalled while flat, so no trade opened",
+          "type": "integer"
         }
       },
       "required": [
@@ -272,7 +315,9 @@
         "equity",
         "buy_and_hold",
         "trades",
-        "metrics"
+        "metrics",
+        "sides",
+        "both_signalled"
       ],
       "title": "BacktestResult",
       "type": "object"
@@ -303,6 +348,21 @@
         "close"
       ],
       "title": "Bar",
+      "type": "object"
+    },
+    "BarsResponse": {
+      "properties": {
+        "bars": {
+          "items": {
+            "$ref": "#/$defs/Bar"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "bars"
+      ],
+      "title": "BarsResponse",
       "type": "object"
     },
     "BollingerOperand": {
@@ -344,6 +404,28 @@
       "title": "BollingerOperand",
       "type": "object"
     },
+    "ChangeOperand": {
+      "additionalProperties": false,
+      "description": "Percent change of the close against the close `period` bars ago.",
+      "properties": {
+        "kind": {
+          "const": "change",
+          "default": "change",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "ChangeOperand",
+      "type": "object"
+    },
     "Comparison": {
       "additionalProperties": false,
       "properties": {
@@ -365,12 +447,17 @@
           "discriminator": {
             "mapping": {
               "bollinger": "#/$defs/BollingerOperand",
+              "change": "#/$defs/ChangeOperand",
               "constant": "#/$defs/ConstantOperand",
               "ema": "#/$defs/EmaOperand",
+              "highest": "#/$defs/HighestOperand",
+              "lowest": "#/$defs/LowestOperand",
               "macd": "#/$defs/MacdOperand",
               "price": "#/$defs/PriceOperand",
+              "relative_volume": "#/$defs/RelativeVolumeOperand",
               "rsi": "#/$defs/RsiOperand",
-              "sma": "#/$defs/SmaOperand"
+              "sma": "#/$defs/SmaOperand",
+              "stochastic": "#/$defs/StochasticOperand"
             },
             "propertyName": "kind"
           },
@@ -392,6 +479,21 @@
             },
             {
               "$ref": "#/$defs/BollingerOperand"
+            },
+            {
+              "$ref": "#/$defs/HighestOperand"
+            },
+            {
+              "$ref": "#/$defs/LowestOperand"
+            },
+            {
+              "$ref": "#/$defs/ChangeOperand"
+            },
+            {
+              "$ref": "#/$defs/RelativeVolumeOperand"
+            },
+            {
+              "$ref": "#/$defs/StochasticOperand"
             },
             {
               "$ref": "#/$defs/ConstantOperand"
@@ -402,12 +504,17 @@
           "discriminator": {
             "mapping": {
               "bollinger": "#/$defs/BollingerOperand",
+              "change": "#/$defs/ChangeOperand",
               "constant": "#/$defs/ConstantOperand",
               "ema": "#/$defs/EmaOperand",
+              "highest": "#/$defs/HighestOperand",
+              "lowest": "#/$defs/LowestOperand",
               "macd": "#/$defs/MacdOperand",
               "price": "#/$defs/PriceOperand",
+              "relative_volume": "#/$defs/RelativeVolumeOperand",
               "rsi": "#/$defs/RsiOperand",
-              "sma": "#/$defs/SmaOperand"
+              "sma": "#/$defs/SmaOperand",
+              "stochastic": "#/$defs/StochasticOperand"
             },
             "propertyName": "kind"
           },
@@ -429,6 +536,21 @@
             },
             {
               "$ref": "#/$defs/BollingerOperand"
+            },
+            {
+              "$ref": "#/$defs/HighestOperand"
+            },
+            {
+              "$ref": "#/$defs/LowestOperand"
+            },
+            {
+              "$ref": "#/$defs/ChangeOperand"
+            },
+            {
+              "$ref": "#/$defs/RelativeVolumeOperand"
+            },
+            {
+              "$ref": "#/$defs/StochasticOperand"
             },
             {
               "$ref": "#/$defs/ConstantOperand"
@@ -485,50 +607,6 @@
       "title": "EmaOperand",
       "type": "object"
     },
-    "EntryRule": {
-      "additionalProperties": false,
-      "properties": {
-        "direction": {
-          "default": "long",
-          "enum": [
-            "long",
-            "short"
-          ],
-          "type": "string"
-        },
-        "condition": {
-          "discriminator": {
-            "mapping": {
-              "and": "#/$defs/AllOf",
-              "compare": "#/$defs/Comparison",
-              "not": "#/$defs/Negation",
-              "or": "#/$defs/AnyOf"
-            },
-            "propertyName": "kind"
-          },
-          "oneOf": [
-            {
-              "$ref": "#/$defs/Comparison"
-            },
-            {
-              "$ref": "#/$defs/AllOf"
-            },
-            {
-              "$ref": "#/$defs/AnyOf"
-            },
-            {
-              "$ref": "#/$defs/Negation"
-            }
-          ]
-        }
-      },
-      "required": [
-        "direction",
-        "condition"
-      ],
-      "title": "EntryRule",
-      "type": "object"
-    },
     "ExecutionModel": {
       "additionalProperties": false,
       "properties": {
@@ -543,11 +621,18 @@
           "maximum": 500,
           "minimum": 0,
           "type": "number"
+        },
+        "leverage": {
+          "default": 1,
+          "maximum": 10,
+          "minimum": 1,
+          "type": "number"
         }
       },
       "required": [
         "commission_pct",
-        "slippage_bps"
+        "slippage_bps",
+        "leverage"
       ],
       "title": "ExecutionModel",
       "type": "object"
@@ -583,7 +668,8 @@
                   "and": "#/$defs/AllOf",
                   "compare": "#/$defs/Comparison",
                   "not": "#/$defs/Negation",
-                  "or": "#/$defs/AnyOf"
+                  "or": "#/$defs/AnyOf",
+                  "score": "#/$defs/Score"
                 },
                 "propertyName": "kind"
               },
@@ -599,6 +685,9 @@
                 },
                 {
                   "$ref": "#/$defs/Negation"
+                },
+                {
+                  "$ref": "#/$defs/Score"
                 }
               ]
             },
@@ -633,14 +722,50 @@
             }
           ],
           "default": null
+        },
+        "trailing_stop_pct": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 100,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
         "rule",
         "stop_loss_pct",
-        "take_profit_pct"
+        "take_profit_pct",
+        "trailing_stop_pct"
       ],
       "title": "Exit",
+      "type": "object"
+    },
+    "HighestOperand": {
+      "additionalProperties": false,
+      "description": "The highest High of the previous bars, not counting the current one, so a close can break above it.",
+      "properties": {
+        "kind": {
+          "const": "highest",
+          "default": "highest",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "HighestOperand",
       "type": "object"
     },
     "InstrumentInfo": {
@@ -684,6 +809,28 @@
         "timeframes"
       ],
       "title": "InstrumentsResponse",
+      "type": "object"
+    },
+    "LowestOperand": {
+      "additionalProperties": false,
+      "description": "The lowest Low of the previous bars, not counting the current one, so a close can break below it.",
+      "properties": {
+        "kind": {
+          "const": "lowest",
+          "default": "lowest",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "LowestOperand",
       "type": "object"
     },
     "MacdOperand": {
@@ -732,6 +879,27 @@
       "title": "MacdOperand",
       "type": "object"
     },
+    "Mark": {
+      "properties": {
+        "time": {
+          "description": "The marked candle's open time, UNIX seconds",
+          "type": "integer"
+        },
+        "side": {
+          "enum": [
+            "buy",
+            "sell"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "time",
+        "side"
+      ],
+      "title": "Mark",
+      "type": "object"
+    },
     "Metrics": {
       "properties": {
         "total_return_pct": {
@@ -768,6 +936,83 @@
         },
         "exposure_time_pct": {
           "type": "number"
+        },
+        "annual_return_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sortino_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "calmar_ratio": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "profit_factor": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "avg_trade_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "avg_trade_hours": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_drawdown_days": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -823,7 +1068,8 @@
               "and": "#/$defs/AllOf",
               "compare": "#/$defs/Comparison",
               "not": "#/$defs/Negation",
-              "or": "#/$defs/AnyOf"
+              "or": "#/$defs/AnyOf",
+              "score": "#/$defs/Score"
             },
             "propertyName": "kind"
           },
@@ -839,6 +1085,9 @@
             },
             {
               "$ref": "#/$defs/Negation"
+            },
+            {
+              "$ref": "#/$defs/Score"
             }
           ]
         }
@@ -875,6 +1124,104 @@
         "field"
       ],
       "title": "PriceOperand",
+      "type": "object"
+    },
+    "Proposal": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "strategy": {
+          "$ref": "#/$defs/StrategyDraft"
+        },
+        "exit_note": {
+          "description": "How the strategy gets out, in words, and why when it is not as drawn",
+          "type": "string"
+        },
+        "entries_hit": {
+          "type": "integer"
+        },
+        "entries_marked": {
+          "type": "integer"
+        },
+        "extra_entries": {
+          "description": "Entry signals between the first and last mark with no entry mark near them",
+          "type": "integer"
+        },
+        "exits_hit": {
+          "type": "integer"
+        },
+        "exits_marked": {
+          "type": "integer"
+        },
+        "extra_exits": {
+          "type": "integer"
+        },
+        "entry_times": {
+          "description": "When the strategy's trades got in, within the candles /api/bars returns",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "exit_times": {
+          "description": "When they got out, within the same candles",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "total_return_pct": {
+          "description": "On the whole history, not only the marked stretch",
+          "type": "number"
+        },
+        "max_drawdown_pct": {
+          "description": "The deepest fall from a high on the whole history, zero or below",
+          "type": "number"
+        },
+        "trade_count": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "strategy",
+        "exit_note",
+        "entries_hit",
+        "entries_marked",
+        "extra_entries",
+        "exits_hit",
+        "exits_marked",
+        "extra_exits",
+        "entry_times",
+        "exit_times",
+        "total_return_pct",
+        "max_drawdown_pct",
+        "trade_count"
+      ],
+      "title": "Proposal",
+      "type": "object"
+    },
+    "RelativeVolumeOperand": {
+      "additionalProperties": false,
+      "description": "Volume divided by its simple average over `period` bars: 1.0 is an average bar.",
+      "properties": {
+        "kind": {
+          "const": "relative_volume",
+          "default": "relative_volume",
+          "type": "string"
+        },
+        "period": {
+          "maximum": 1000,
+          "minimum": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "period"
+      ],
+      "title": "RelativeVolumeOperand",
       "type": "object"
     },
     "ResultResponse": {
@@ -916,6 +1263,238 @@
       "title": "RsiOperand",
       "type": "object"
     },
+    "Score": {
+      "additionalProperties": false,
+      "description": "True when the weights of the parts that are true add up to at least the threshold.",
+      "properties": {
+        "kind": {
+          "const": "score",
+          "default": "score",
+          "type": "string"
+        },
+        "threshold": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "parts": {
+          "items": {
+            "$ref": "#/$defs/ScorePart"
+          },
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "threshold",
+        "parts"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "ScorePart": {
+      "additionalProperties": false,
+      "properties": {
+        "weight": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "type": "number"
+        },
+        "condition": {
+          "discriminator": {
+            "mapping": {
+              "and": "#/$defs/AllOf",
+              "compare": "#/$defs/Comparison",
+              "not": "#/$defs/Negation",
+              "or": "#/$defs/AnyOf",
+              "score": "#/$defs/Score"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Comparison"
+            },
+            {
+              "$ref": "#/$defs/AllOf"
+            },
+            {
+              "$ref": "#/$defs/AnyOf"
+            },
+            {
+              "$ref": "#/$defs/Negation"
+            },
+            {
+              "$ref": "#/$defs/Score"
+            }
+          ]
+        }
+      },
+      "required": [
+        "weight",
+        "condition"
+      ],
+      "title": "ScorePart",
+      "type": "object"
+    },
+    "Side": {
+      "additionalProperties": false,
+      "description": "The long or the short half of a strategy: when to open that position and how it closes.",
+      "properties": {
+        "direction": {
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "entry": {
+          "discriminator": {
+            "mapping": {
+              "and": "#/$defs/AllOf",
+              "compare": "#/$defs/Comparison",
+              "not": "#/$defs/Negation",
+              "or": "#/$defs/AnyOf",
+              "score": "#/$defs/Score"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Comparison"
+            },
+            {
+              "$ref": "#/$defs/AllOf"
+            },
+            {
+              "$ref": "#/$defs/AnyOf"
+            },
+            {
+              "$ref": "#/$defs/Negation"
+            },
+            {
+              "$ref": "#/$defs/Score"
+            }
+          ]
+        },
+        "exit": {
+          "$ref": "#/$defs/Exit"
+        }
+      },
+      "required": [
+        "direction",
+        "entry",
+        "exit"
+      ],
+      "title": "Side",
+      "type": "object"
+    },
+    "SideDraft": {
+      "additionalProperties": false,
+      "description": "One side of a strategy as the editor sends it: its entry or exit may still be missing.",
+      "properties": {
+        "direction": {
+          "default": "long",
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "entry": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "and": "#/$defs/AllOf",
+                  "compare": "#/$defs/Comparison",
+                  "not": "#/$defs/Negation",
+                  "or": "#/$defs/AnyOf",
+                  "score": "#/$defs/Score"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Comparison"
+                },
+                {
+                  "$ref": "#/$defs/AllOf"
+                },
+                {
+                  "$ref": "#/$defs/AnyOf"
+                },
+                {
+                  "$ref": "#/$defs/Negation"
+                },
+                {
+                  "$ref": "#/$defs/Score"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "exit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Exit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "direction",
+        "entry",
+        "exit"
+      ],
+      "title": "SideDraft",
+      "type": "object"
+    },
+    "SideResult": {
+      "properties": {
+        "direction": {
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "trade_count": {
+          "type": "integer"
+        },
+        "win_rate_pct": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "return_pct": {
+          "description": "This side's closed trades' profit, as % of the starting cash",
+          "type": "number"
+        }
+      },
+      "required": [
+        "direction",
+        "trade_count",
+        "win_rate_pct",
+        "return_pct"
+      ],
+      "title": "SideResult",
+      "type": "object"
+    },
     "SmaOperand": {
       "additionalProperties": false,
       "properties": {
@@ -937,17 +1516,62 @@
       "title": "SmaOperand",
       "type": "object"
     },
+    "StochasticOperand": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "stochastic",
+          "default": "stochastic",
+          "type": "string"
+        },
+        "period": {
+          "default": 14,
+          "maximum": 1000,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "smooth": {
+          "default": 3,
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "line": {
+          "default": "k",
+          "enum": [
+            "k",
+            "d"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "period",
+        "smooth",
+        "line"
+      ],
+      "title": "StochasticOperand",
+      "type": "object"
+    },
     "Strategy": {
       "additionalProperties": false,
       "description": "A complete strategy, ready to backtest.",
       "properties": {
         "schema_version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "type": "integer"
         },
         "instrument": {
           "type": "string"
+        },
+        "extra_instruments": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "timeframe": {
           "enum": [
@@ -957,11 +1581,13 @@
           ],
           "type": "string"
         },
-        "entry": {
-          "$ref": "#/$defs/EntryRule"
-        },
-        "exit": {
-          "$ref": "#/$defs/Exit"
+        "sides": {
+          "items": {
+            "$ref": "#/$defs/Side"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
         },
         "position_size_pct": {
           "default": 100,
@@ -973,16 +1599,17 @@
           "$ref": "#/$defs/ExecutionModel",
           "default": {
             "commission_pct": 0.1,
-            "slippage_bps": 5.0
+            "slippage_bps": 5.0,
+            "leverage": 1.0
           }
         }
       },
       "required": [
         "schema_version",
         "instrument",
+        "extra_instruments",
         "timeframe",
-        "entry",
-        "exit",
+        "sides",
         "position_size_pct",
         "execution"
       ],
@@ -991,11 +1618,11 @@
     },
     "StrategyDraft": {
       "additionalProperties": false,
-      "description": "A strategy as the editor sends it: the four required parts may still be missing.",
+      "description": "A strategy as the editor sends it: the required parts may still be missing.",
       "properties": {
         "schema_version": {
-          "const": 1,
-          "default": 1,
+          "const": 2,
+          "default": 2,
           "type": "integer"
         },
         "instrument": {
@@ -1008,6 +1635,13 @@
             }
           ],
           "default": null
+        },
+        "extra_instruments": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "timeframe": {
           "anyOf": [
@@ -1025,27 +1659,20 @@
           ],
           "default": null
         },
-        "entry": {
-          "anyOf": [
+        "sides": {
+          "default": [
             {
-              "$ref": "#/$defs/EntryRule"
-            },
-            {
-              "type": "null"
+              "direction": "long",
+              "entry": null,
+              "exit": null
             }
           ],
-          "default": null
-        },
-        "exit": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/Exit"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
+          "items": {
+            "$ref": "#/$defs/SideDraft"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "type": "array"
         },
         "position_size_pct": {
           "default": 100,
@@ -1057,20 +1684,99 @@
           "$ref": "#/$defs/ExecutionModel",
           "default": {
             "commission_pct": 0.1,
-            "slippage_bps": 5.0
+            "slippage_bps": 5.0,
+            "leverage": 1.0
           }
         }
       },
       "required": [
         "schema_version",
         "instrument",
+        "extra_instruments",
         "timeframe",
-        "entry",
-        "exit",
+        "sides",
         "position_size_pct",
         "execution"
       ],
       "title": "StrategyDraft",
+      "type": "object"
+    },
+    "SuggestRequest": {
+      "properties": {
+        "instrument": {
+          "type": "string"
+        },
+        "timeframe": {
+          "enum": [
+            "1d",
+            "4h",
+            "1h"
+          ],
+          "type": "string"
+        },
+        "direction": {
+          "default": "long",
+          "enum": [
+            "long",
+            "short"
+          ],
+          "type": "string"
+        },
+        "marks": {
+          "items": {
+            "$ref": "#/$defs/Mark"
+          },
+          "maxItems": 400,
+          "type": "array"
+        },
+        "stop_loss_pct": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 100,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "take_profit_pct": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "instrument",
+        "timeframe",
+        "marks"
+      ],
+      "title": "SuggestRequest",
+      "type": "object"
+    },
+    "SuggestResponse": {
+      "properties": {
+        "proposals": {
+          "items": {
+            "$ref": "#/$defs/Proposal"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "proposals"
+      ],
+      "title": "SuggestResponse",
       "type": "object"
     },
     "TimePoint": {
@@ -1181,6 +1887,15 @@
           "$ref": "#/$defs/AiBuildFailed"
         }
       ]
+    },
+    "bars_response": {
+      "$ref": "#/$defs/BarsResponse"
+    },
+    "suggest_request": {
+      "$ref": "#/$defs/SuggestRequest"
+    },
+    "suggest_response": {
+      "$ref": "#/$defs/SuggestResponse"
     }
   },
   "required": [
@@ -1191,7 +1906,10 @@
     "instruments_response",
     "execution_preset",
     "ai_build_request",
-    "ai_build_response"
+    "ai_build_response",
+    "bars_response",
+    "suggest_request",
+    "suggest_response"
   ],
   "title": "ApiTypes",
   "type": "object"

@@ -48,7 +48,11 @@ class MarketData(Protocol):
 
 
 class BinanceMarketData:
-    """Binance spot klines from the public market-data API (no key), cached as parquet files."""
+    """Binance spot klines from the public market-data API (no key), cached as pickled frames.
+
+    Pickle, not parquet: it needs no extra engine (Windows application control can block pyarrow's DLL),
+    and the files are only ever written and read by this class.
+    """
 
     def __init__(self, cache_dir: Path) -> None:
         self._cache_dir = cache_dir
@@ -70,6 +74,9 @@ class BinanceMarketData:
             if cached is not None and time.time() - cached[0] < REFRESH_AFTER_SECONDS:
                 return cached[1]
             frame = self._load_or_refresh(symbol, timeframe)
+            # pandas builds an index's lookup table on first use, and two threads doing that at once (the long
+            # and the short search) can see it as not unique. Built here, under the lock, it is shared read-only.
+            _ = frame.index.is_unique
             self._memory[key] = (time.time(), frame)
             return frame
 
@@ -87,11 +94,11 @@ class BinanceMarketData:
             return self._locks.setdefault(key, threading.Lock())
 
     def _cache_path(self, symbol: str, timeframe: Timeframe) -> Path:
-        return self._cache_dir / f"binance_{symbol}_{timeframe}.parquet"
+        return self._cache_dir / f"binance_{symbol}_{timeframe}.pkl"
 
     def _load_or_refresh(self, symbol: str, timeframe: Timeframe) -> pd.DataFrame:
         path = self._cache_path(symbol, timeframe)
-        existing: pd.DataFrame | None = pd.read_parquet(path) if path.exists() else None
+        existing: pd.DataFrame | None = pd.read_pickle(path) if path.exists() else None
         is_fresh = path.exists() and time.time() - path.stat().st_mtime < REFRESH_AFTER_SECONDS
         if existing is not None and is_fresh:
             return existing
@@ -100,7 +107,7 @@ class BinanceMarketData:
         fetched = _fetch_klines(symbol, timeframe, start_ms)
         combined = fetched if existing is None else pd.concat([existing, fetched])
         combined = _drop_unfinished_bar(combined[~combined.index.duplicated(keep="last")], timeframe)
-        combined.to_parquet(path)
+        combined.to_pickle(path)
         return combined
 
 

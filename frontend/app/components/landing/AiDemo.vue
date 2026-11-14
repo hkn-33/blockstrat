@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
     <div class="card-head">
       <div class="tabs" role="tablist" aria-label="Assistant views">
         <button type="button" role="tab" class="tab" :class="{ 'is-on': tab === 'chat' }" :aria-selected="tab === 'chat'" @click="showTab('chat')">
-          <img src="/brand-icons/gemini.svg" alt="" class="h-5 w-5"> Assistant
+          <UiIcon name="sparkles" class="h-5 w-5" /> Assistant
         </button>
         <Transition name="tab-in">
           <button v-if="hasAnswer" type="button" role="tab" class="tab" :class="{ 'is-on': tab === 'json' }" :aria-selected="tab === 'json'" @click="showTab('json')">
@@ -229,14 +229,12 @@ onBeforeUnmount(() => {
                 {{ message.text }}
               </p>
               <div class="answer-rules">
-                <LandingRuleBuilder
+                <LandingStrategyBoard
+                  compact
                   :market="message.state.market"
-                  timeframe="4 hours"
+                  :name="DEMO_STRATEGY_NAMES[message.state.strategy]"
                   :entry="demoRules(message.state.strategy, message.state.stopLoss).entry"
                   :exit="demoRules(message.state.strategy, message.state.stopLoss).exit"
-                  theme="auto"
-                  entrance
-                  flush
                 />
               </div>
               <p class="answer-result">

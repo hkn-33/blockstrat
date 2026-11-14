@@ -1,0 +1,83 @@
+/* A strategy laid out as the builder shows it, shared by the landing page's read-only rules and the builder's
+   editor: a head with the market, then "Buy when" and "Sell when" groups of condition tiles. */
+.rules {
+  display: grid;
+  /* One column no wider than its card: a long tile wraps inside it instead of widening everything. */
+  grid-template-columns: minmax(0, 1fr);
+  color: var(--panel-ink);
+  font-size: var(--rules-size, 14px);
+}
+
+.rules-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  border-bottom: 1px solid var(--panel-line);
+  padding: 0.9em 1.1em;
+}
+
+.rules-muted {
+  color: var(--panel-soft);
+}
+
+.rules-group {
+  padding: 1em 1.1em 1.1em;
+}
+
+.rules-group + .rules-group {
+  border-top: 1px solid var(--panel-line);
+}
+
+.rules-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45em;
+}
+
+.rules-glyph {
+  display: grid;
+  width: 1.75em;
+  height: 1.75em;
+  place-items: center;
+  margin-right: 0.15em;
+  border-radius: 0.55em;
+  color: #ffffff;
+}
+
+.rules-glyph .ui-icon {
+  width: 1em;
+  height: 1em;
+}
+
+.rules-glyph--entry {
+  background: var(--color-gain);
+}
+
+.rules-glyph--exit {
+  background: var(--color-loss);
+}
+
+.rules-list {
+  display: grid;
+  gap: 0.35em;
+  margin-top: 0.75em;
+  margin-left: 0.85em;
+  border-left: 1.5px solid var(--tile-split);
+  padding-left: 0.85em;
+}
+
+.rules-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  padding-left: 0.85em;
+}
+
+.rules-joiner {
+  width: 100%;
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--panel-soft);
+}

@@ -17,6 +17,9 @@ export interface ApiTypes {
   execution_preset: ExecutionPreset;
   ai_build_request: AiBuildRequest;
   ai_build_response: AiBuildOk | AiBuildFailed;
+  bars_response: BarsResponse;
+  suggest_request: SuggestRequest;
+  suggest_response: SuggestResponse;
 }
 /**
  * A complete strategy, ready to backtest.
@@ -25,21 +28,28 @@ export interface ApiTypes {
  * via the `definition` "Strategy".
  */
 export interface Strategy {
-  schema_version: 1;
+  schema_version: 2;
   instrument: string;
+  extra_instruments: string[];
   timeframe: "1d" | "4h" | "1h";
-  entry: EntryRule;
-  exit: Exit;
+  /**
+   * @minItems 1
+   * @maxItems 2
+   */
+  sides: [Side] | [Side, Side];
   position_size_pct: number;
   execution: ExecutionModel;
 }
 /**
+ * The long or the short half of a strategy: when to open that position and how it closes.
+ *
  * This interface was referenced by `ApiTypes`'s JSON-Schema
- * via the `definition` "EntryRule".
+ * via the `definition` "Side".
  */
-export interface EntryRule {
+export interface Side {
   direction: "long" | "short";
-  condition: Comparison | AllOf | AnyOf | Negation;
+  entry: Comparison | AllOf | AnyOf | Negation | Score;
+  exit: Exit;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -48,8 +58,32 @@ export interface EntryRule {
 export interface Comparison {
   kind: "compare";
   operator: "gt" | "lt" | "crosses_above" | "crosses_below";
-  left: PriceOperand | SmaOperand | EmaOperand | RsiOperand | MacdOperand | BollingerOperand | ConstantOperand;
-  right: PriceOperand | SmaOperand | EmaOperand | RsiOperand | MacdOperand | BollingerOperand | ConstantOperand;
+  left:
+    | PriceOperand
+    | SmaOperand
+    | EmaOperand
+    | RsiOperand
+    | MacdOperand
+    | BollingerOperand
+    | HighestOperand
+    | LowestOperand
+    | ChangeOperand
+    | RelativeVolumeOperand
+    | StochasticOperand
+    | ConstantOperand;
+  right:
+    | PriceOperand
+    | SmaOperand
+    | EmaOperand
+    | RsiOperand
+    | MacdOperand
+    | BollingerOperand
+    | HighestOperand
+    | LowestOperand
+    | ChangeOperand
+    | RelativeVolumeOperand
+    | StochasticOperand
+    | ConstantOperand;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -105,6 +139,56 @@ export interface BollingerOperand {
   band: "upper" | "middle" | "lower";
 }
 /**
+ * The highest High of the previous bars, not counting the current one, so a close can break above it.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "HighestOperand".
+ */
+export interface HighestOperand {
+  kind: "highest";
+  period: number;
+}
+/**
+ * The lowest Low of the previous bars, not counting the current one, so a close can break below it.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "LowestOperand".
+ */
+export interface LowestOperand {
+  kind: "lowest";
+  period: number;
+}
+/**
+ * Percent change of the close against the close `period` bars ago.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "ChangeOperand".
+ */
+export interface ChangeOperand {
+  kind: "change";
+  period: number;
+}
+/**
+ * Volume divided by its simple average over `period` bars: 1.0 is an average bar.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "RelativeVolumeOperand".
+ */
+export interface RelativeVolumeOperand {
+  kind: "relative_volume";
+  period: number;
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "StochasticOperand".
+ */
+export interface StochasticOperand {
+  kind: "stochastic";
+  period: number;
+  smooth: number;
+  line: "k" | "d";
+}
+/**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
  * via the `definition` "ConstantOperand".
  */
@@ -122,9 +206,9 @@ export interface AllOf {
    * @minItems 2
    */
   conditions: [
-    Comparison | AllOf | AnyOf | Negation,
-    Comparison | AllOf | AnyOf | Negation,
-    ...(Comparison | AllOf | AnyOf | Negation)[]
+    Comparison | AllOf | AnyOf | Negation | Score,
+    Comparison | AllOf | AnyOf | Negation | Score,
+    ...(Comparison | AllOf | AnyOf | Negation | Score)[]
   ];
 }
 /**
@@ -137,9 +221,9 @@ export interface AnyOf {
    * @minItems 2
    */
   conditions: [
-    Comparison | AllOf | AnyOf | Negation,
-    Comparison | AllOf | AnyOf | Negation,
-    ...(Comparison | AllOf | AnyOf | Negation)[]
+    Comparison | AllOf | AnyOf | Negation | Score,
+    Comparison | AllOf | AnyOf | Negation | Score,
+    ...(Comparison | AllOf | AnyOf | Negation | Score)[]
   ];
 }
 /**
@@ -148,39 +232,79 @@ export interface AnyOf {
  */
 export interface Negation {
   kind: "not";
-  condition: Comparison | AllOf | AnyOf | Negation;
+  condition: Comparison | AllOf | AnyOf | Negation | Score;
+}
+/**
+ * True when the weights of the parts that are true add up to at least the threshold.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "Score".
+ */
+export interface Score {
+  kind: "score";
+  threshold: number;
+  /**
+   * @minItems 2
+   */
+  parts: [ScorePart, ScorePart, ...ScorePart[]];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "ScorePart".
+ */
+export interface ScorePart {
+  weight: number;
+  condition: Comparison | AllOf | AnyOf | Negation | Score;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
  * via the `definition` "Exit".
  */
 export interface Exit {
-  rule: (Comparison | AllOf | AnyOf | Negation) | null;
+  rule: (Comparison | AllOf | AnyOf | Negation | Score) | null;
   stop_loss_pct: number | null;
   take_profit_pct: number | null;
+  trailing_stop_pct: number | null;
 }
 export interface ExecutionModel {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
- * A strategy as the editor sends it: the four required parts may still be missing.
+ * A strategy as the editor sends it: the required parts may still be missing.
  *
  * This interface was referenced by `ApiTypes`'s JSON-Schema
  * via the `definition` "StrategyDraft".
  */
 export interface StrategyDraft {
-  schema_version: 1;
+  schema_version: 2;
   instrument: string | null;
+  extra_instruments: string[];
   timeframe: ("1d" | "4h" | "1h") | null;
-  entry: EntryRule | null;
-  exit: Exit | null;
+  /**
+   * @minItems 1
+   * @maxItems 2
+   */
+  sides: [SideDraft] | [SideDraft, SideDraft];
   position_size_pct: number;
   execution: ExecutionModel1;
+}
+/**
+ * One side of a strategy as the editor sends it: its entry or exit may still be missing.
+ *
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SideDraft".
+ */
+export interface SideDraft {
+  direction: "long" | "short";
+  entry: (Comparison | AllOf | AnyOf | Negation | Score) | null;
+  exit: Exit | null;
 }
 export interface ExecutionModel1 {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -189,6 +313,7 @@ export interface ExecutionModel1 {
 export interface BacktestRequest {
   strategy: StrategyDraft;
   mode?: "preview" | "full";
+  period?: "3m" | "6m" | "1y" | "3y" | "all";
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -220,6 +345,11 @@ export interface BacktestResult {
   buy_and_hold: TimePoint[];
   trades: Trade[];
   metrics: Metrics;
+  sides: SideResult[];
+  /**
+   * Candles where both sides signalled while flat, so no trade opened
+   */
+  both_signalled: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -269,6 +399,26 @@ export interface Metrics {
   win_rate_pct: number | null;
   trade_count: number;
   exposure_time_pct: number;
+  annual_return_pct?: number | null;
+  sortino_ratio?: number | null;
+  calmar_ratio?: number | null;
+  profit_factor?: number | null;
+  avg_trade_pct?: number | null;
+  avg_trade_hours?: number | null;
+  max_drawdown_days?: number | null;
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SideResult".
+ */
+export interface SideResult {
+  direction: "long" | "short";
+  trade_count: number;
+  win_rate_pct: number | null;
+  /**
+   * This side's closed trades' profit, as % of the starting cash
+   */
+  return_pct: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -302,6 +452,7 @@ export interface ExecutionPreset {
 export interface ExecutionModel2 {
   commission_pct: number;
   slippage_bps: number;
+  leverage: number;
 }
 /**
  * This interface was referenced by `ApiTypes`'s JSON-Schema
@@ -523,6 +674,88 @@ export interface AiBuildOk {
  * via the `definition` "AiBuildFailed".
  */
 export interface AiBuildFailed {
-  status: "rate_limited" | "unavailable" | "invalid";
+  status: "rate_limited" | "unavailable" | "invalid" | "busy";
   message: string;
+  /**
+   * With busy: how long to wait before asking again
+   */
+  retry_after_seconds: number | null;
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "BarsResponse".
+ */
+export interface BarsResponse {
+  bars: Bar[];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SuggestRequest".
+ */
+export interface SuggestRequest {
+  instrument: string;
+  timeframe: "1d" | "4h" | "1h";
+  direction?: "long" | "short";
+  /**
+   * @maxItems 400
+   */
+  marks: Mark[];
+  stop_loss_pct?: number | null;
+  take_profit_pct?: number | null;
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "Mark".
+ */
+export interface Mark {
+  /**
+   * The marked candle's open time, UNIX seconds
+   */
+  time: number;
+  side: "buy" | "sell";
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "SuggestResponse".
+ */
+export interface SuggestResponse {
+  proposals: Proposal[];
+}
+/**
+ * This interface was referenced by `ApiTypes`'s JSON-Schema
+ * via the `definition` "Proposal".
+ */
+export interface Proposal {
+  name: string;
+  strategy: StrategyDraft;
+  /**
+   * How the strategy gets out, in words, and why when it is not as drawn
+   */
+  exit_note: string;
+  entries_hit: number;
+  entries_marked: number;
+  /**
+   * Entry signals between the first and last mark with no entry mark near them
+   */
+  extra_entries: number;
+  exits_hit: number;
+  exits_marked: number;
+  extra_exits: number;
+  /**
+   * When the strategy's trades got in, within the candles /api/bars returns
+   */
+  entry_times: number[];
+  /**
+   * When they got out, within the same candles
+   */
+  exit_times: number[];
+  /**
+   * On the whole history, not only the marked stretch
+   */
+  total_return_pct: number;
+  /**
+   * The deepest fall from a high on the whole history, zero or below
+   */
+  max_drawdown_pct: number;
+  trade_count: number;
 }

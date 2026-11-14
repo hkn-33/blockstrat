@@ -11,10 +11,7 @@ useSeoMeta({
 
 // The run the bento tiles quote: trend with an RSI filter on Solana, 5% stop.
 const featuredRun = demoRun('combo', 'SOLUSDT', 5)
-const featuredReturn = Math.round(featuredRun.metrics.total_return_pct)
-const featuredHolding = Math.round(featuredRun.metrics.buy_and_hold_return_pct)
 const featuredDrawdown = Math.round(Math.abs(featuredRun.metrics.max_drawdown_pct))
-const featuredGap = holdingGap(featuredRun.metrics, 'SOL')
 
 const PAIRS = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'LTC']
 
@@ -22,6 +19,12 @@ const ASSISTANT_FACTS = [
   { icon: 'file-json', title: 'Blocks, never code', text: 'It answers with the same blocks you would snap together, so you can check every rule it set.' },
   { icon: 'shield-check', title: 'Says what it cannot build', text: 'Ask for something the engine does not do, like short selling, and it tells you instead of guessing.' },
   { icon: 'refresh-cw', title: 'Yours to change', text: 'Every block stays editable, and each change replays the backtest in well under a second.' },
+]
+
+const MARK_FACTS = [
+  { icon: 'mouse-pointer-click', title: 'Draw it like on TradingView', text: 'Long or short: click the entry, click the target. The stop-loss follows the reward to risk you like.' },
+  { icon: 'wand-sparkles', title: 'Rules that land on your trades', text: 'Hundreds of rules and their pairs are tried, then narrowed with trend, momentum and volume.' },
+  { icon: 'shield-check', title: 'Tested past your drawing', text: 'Every rule that fits is run on years of candles, so one that only fits the picture shows it.' },
 ]
 
 const COINS = ['bitcoin', 'ethereum', 'solana']
@@ -128,16 +131,18 @@ const FAQ = [
         <nav class="nav-links hidden md:flex" aria-label="Main">
           <a href="#how" class="nav-link">How it works</a>
           <a href="#ai" class="nav-link">Assistant</a>
+          <a href="#mark" class="nav-link">Mark trades</a>
           <a href="#markets" class="nav-link">Results</a>
           <a href="#honest" class="nav-link">How it counts</a>
           <a href="#faq" class="nav-link">Questions</a>
         </nav>
         <div class="flex items-center gap-2">
-          <ClientOnly>
-            <button type="button" class="theme-toggle" :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'" @click="toggleTheme">
-              <UiIcon :name="isDark ? 'sun' : 'moon'" />
-            </button>
-          </ClientOnly>
+          <!-- In the prerendered page from the start, so nothing beside it moves: both icons are there and the
+               theme class, set before the first paint, shows the right one. -->
+          <button type="button" class="theme-toggle" aria-label="Switch between light and dark mode" @click="toggleTheme">
+            <UiIcon name="sun" class="theme-icon theme-icon--sun" />
+            <UiIcon name="moon" class="theme-icon theme-icon--moon" />
+          </button>
           <NuxtLink to="/app" class="btn btn-lime btn-small">
             Open the builder
           </NuxtLink>
@@ -215,6 +220,38 @@ const FAQ = [
       </div>
     </section>
 
+    <section id="mark" class="scroll-mt-4">
+      <div class="wrap grid gap-12 py-24 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center lg:py-32">
+        <div class="min-w-0">
+          <LandingMarkDemo />
+          <p class="mt-3 text-[13px] text-[var(--muted)]">
+            Real SOL/USDT four-hour candles and the real trades of the Trend rules on them, fees included. The marks are three of those trades.
+          </p>
+        </div>
+        <div class="lg:order-first">
+          <h2 class="section-title">
+            Mark the trades you would have made. Get the rules behind them
+          </h2>
+          <p class="mt-5 max-w-[30rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
+            You know a good trade when you see one. Draw a few on the chart and BlockStrat finds the rules that would have taken them.
+          </p>
+          <dl class="mt-10 grid gap-6">
+            <div v-for="fact in MARK_FACTS" :key="fact.title" class="fact">
+              <UiIcon :name="fact.icon" class="fact-icon" />
+              <div>
+                <dt class="font-bold">
+                  {{ fact.title }}
+                </dt>
+                <dd class="mt-1 text-[15px] leading-[1.55] text-[var(--ink-soft)]">
+                  {{ fact.text }}
+                </dd>
+              </div>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
     <section id="markets" class="scroll-mt-4">
       <div class="wrap py-24 lg:py-32">
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-end">
@@ -238,7 +275,7 @@ const FAQ = [
             Counted the way an exchange would count it
           </h2>
           <p class="max-w-[30rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
-            Many backtests look great because they quietly cheat. BlockStrat fills, charges and compares the way a real
+            Many backtests look great because they quietly cheat. BlockStrat fills, charges and reports the way a real
             account would.
           </p>
         </div>
@@ -275,43 +312,13 @@ const FAQ = [
             </dl>
           </article>
 
-          <article class="tile">
-            <h3 class="tile-title">
-              Always next to holding
-            </h3>
-            <p class="tile-text">
-              Both start from the same $10,000. If simply holding did better, the result says so
-            </p>
-            <p class="edge mt-6">
-              {{ featuredGap.dollars }} <span>{{ featuredGap.words }}</span>
-            </p>
-            <div class="mt-5 grid gap-4 text-[15px]">
-              <div>
-                <div class="flex justify-between">
-                  <span>Trend with filter, SOL</span><span class="font-bold tabular-nums text-[var(--gain-ink)]">+{{ featuredReturn }}%</span>
-                </div>
-                <div class="diverging mt-2">
-                  <span class="diverging-gain" :style="{ width: `${featuredReturn}%` }" />
-                </div>
-              </div>
-              <div>
-                <div class="flex justify-between">
-                  <span>Holding SOL</span><span class="font-bold tabular-nums text-[var(--loss-ink)]">−{{ Math.abs(featuredHolding) }}%</span>
-                </div>
-                <div class="diverging mt-2">
-                  <span class="diverging-loss" :style="{ width: `${Math.abs(featuredHolding)}%` }" />
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article class="tile tile-wide tile-chart">
+          <article class="tile tile-full tile-chart">
             <div class="tile-head">
               <h3 class="tile-title">
                 The worst drop, in plain sight
               </h3>
               <p class="tile-text">
-                Even the strategy that beat holding spent weeks {{ featuredDrawdown }}% under its high, shown right next to the return
+                Even a strategy that made money spent weeks {{ featuredDrawdown }}% under its high, shown right next to the return
               </p>
             </div>
             <ClientOnly>
@@ -421,7 +428,7 @@ const FAQ = [
                 <img src="/brand-icons/binance.svg" alt="" class="footer-icon"> Binance market data
               </li>
               <li class="flex items-center gap-2">
-                <img src="/brand-icons/gemini.svg" alt="" class="footer-icon"> Gemini for the assistant
+                <UiIcon name="sparkles" class="footer-icon" /> Groq for the assistant
               </li>
               <li>Python backtests, Nuxt front end</li>
               <li>1h, 4h and 1d candles since 2017</li>
@@ -440,81 +447,6 @@ const FAQ = [
 </template>
 
 <style>
-.lp {
-  --page: #ffffff;
-  --surface: #ffffff;
-  --ink: var(--color-ink);
-  --ink-soft: #394c57;
-  --muted: #56676f;
-  --line: #dde6e9;
-  --tint: rgb(13 27 36 / 0.05);
-  --tint-strong: #e7edf0;
-  --canvas-bg: var(--color-canvas);
-  --card-shadow: 0 1px 2px rgb(13 27 36 / 0.05), 0 20px 40px -28px rgb(13 27 36 / 0.35);
-  --hero-bg: #e9f2f3;
-  --band-bg: #e4eef0;
-  --panel: #ffffff;
-  --panel-2: #f4f8f9;
-  --panel-ink: #0d1b24;
-  --panel-soft: #56676f;
-  --panel-line: rgb(13 27 36 / 0.09);
-  --panel-fill: rgb(13 27 36 / 0.05);
-  --panel-fill-strong: rgb(13 27 36 / 0.09);
-  --panel-shadow: inset 0 0 0 1px rgb(13 27 36 / 0.08), 0 30px 60px -40px rgb(13 27 36 / 0.45);
-  --gain-ink: var(--color-gain);
-  --loss-ink: var(--color-loss);
-  --accent-ink: var(--color-gain);
-  --result-bg: rgb(14 153 99 / 0.08);
-  --result-ink: #0b6e48;
-  --code-key: #0e6f78;
-  --code-string: #0b7a4f;
-  --code-number: #2d5bd1;
-  --code-punctuation: #7a8c94;
-  --focus: var(--color-petrol);
-  --logo-ink: var(--color-ink);
-  --logo-accent: var(--color-gain);
-  --wordmark: #d2e2e5;
-  --nav-glass: rgb(255 255 255 / 0.78);
-  font-family: var(--font-sans);
-}
-
-.dark .lp {
-  --page: #071d21;
-  --surface: #0e272c;
-  --ink: #eaf2f3;
-  --ink-soft: rgb(234 242 243 / 0.78);
-  --muted: rgb(234 242 243 / 0.66);
-  --line: rgb(255 255 255 / 0.09);
-  --tint: rgb(255 255 255 / 0.06);
-  --tint-strong: rgb(255 255 255 / 0.1);
-  --canvas-bg: #0a2226;
-  --card-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07), 0 20px 40px -28px rgb(0 0 0 / 0.6);
-  --hero-bg: #082a30;
-  --band-bg: #082a30;
-  --panel: #0b2125;
-  --panel-2: #061e23;
-  --panel-ink: #ffffff;
-  --panel-soft: rgb(214 226 230 / 0.75);
-  --panel-line: rgb(255 255 255 / 0.08);
-  --panel-fill: rgb(255 255 255 / 0.06);
-  --panel-fill-strong: rgb(255 255 255 / 0.14);
-  --panel-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08), inset 0 0 0 1px rgb(255 255 255 / 0.08), 0 30px 60px -40px rgb(0 0 0 / 0.6);
-  --gain-ink: var(--color-gain-bright);
-  --loss-ink: var(--color-loss-bright);
-  --accent-ink: var(--color-lime);
-  --result-bg: rgb(200 242 90 / 0.1);
-  --result-ink: #e7f9b8;
-  --code-key: #7fe3d6;
-  --code-string: var(--color-lime);
-  --code-number: #b8d0ff;
-  --code-punctuation: #7f9da2;
-  --focus: var(--color-lime);
-  --logo-ink: #ffffff;
-  --logo-accent: var(--color-lime);
-  --wordmark: var(--color-petrol);
-  --nav-glass: rgb(8 42 48 / 0.72);
-}
-
 /* Shared by the page and its section components. */
 .lp .wrap {
   width: min(100% - 2.5rem, 1320px);
@@ -587,8 +519,33 @@ const FAQ = [
   }
 }
 
+/* At the top of the page the bar is a light pane of glass over the hero: a faint tint, a soft blur of what is
+   behind it, and a thin highlight along its top edge, as light catches glass. Scrolled, it firms up below. */
+.nav:not(.is-compact) {
+  padding-top: 0.75rem;
+}
+
+.nav:not(.is-compact) .nav-bar {
+  padding: 0.7rem 0.75rem 0.7rem 1.25rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 22%, transparent), color-mix(in srgb, var(--panel) 10%, transparent));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent),
+    0 12px 32px -24px rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(10px) saturate(1.25);
+}
+
 .nav.is-compact {
   padding-top: 0.6rem;
+}
+
+.lp .theme-icon--sun,
+:root.dark .lp .theme-icon--moon {
+  display: none;
+}
+
+:root.dark .lp .theme-icon--sun {
+  display: inline-flex;
 }
 
 .nav.is-compact .nav-bar {
@@ -716,8 +673,6 @@ const FAQ = [
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 3px;
   box-shadow: 0 0 0 2px var(--hero-bg);
 }
 
@@ -846,6 +801,10 @@ const FAQ = [
   .tile-wide {
     grid-column: span 3;
   }
+
+  .tile-full {
+    grid-column: 1 / -1;
+  }
 }
 
 .tile {
@@ -888,21 +847,6 @@ const FAQ = [
   color: var(--ink-soft);
 }
 
-.edge {
-  font-size: 40px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.edge span {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0;
-  color: var(--ink-soft);
-}
-
 .fees {
   display: grid;
   font-size: 15px;
@@ -930,8 +874,6 @@ const FAQ = [
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
   box-shadow: 0 0 0 1px var(--line);
 }
 
@@ -945,42 +887,6 @@ const FAQ = [
 
 .fees .fees-total dd {
   color: var(--loss-ink);
-}
-
-/* Bars that grow out of one centre line: right for a gain, left for a loss. */
-.diverging {
-  position: relative;
-  height: 0.6rem;
-  border-radius: 999px;
-  background: var(--tint-strong);
-}
-
-.diverging::after {
-  position: absolute;
-  top: -0.2rem;
-  bottom: -0.2rem;
-  left: 50%;
-  width: 2px;
-  background: #a3b1b9;
-  content: "";
-}
-
-.diverging span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  max-width: 50%;
-  border-radius: 999px;
-}
-
-.diverging-gain {
-  left: 50%;
-  background: var(--gain-ink);
-}
-
-.diverging-loss {
-  right: 50%;
-  background: var(--loss-ink);
 }
 
 .quote {

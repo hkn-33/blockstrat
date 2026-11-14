@@ -36,18 +36,19 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - Folder-level only, one line per entry. Don't list individual files.
 
 ### Folders
-- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), AI strategy builder (Gemini).
+- `backend/`: Python FastAPI service (uv): strategy schema, Binance market data, backtests (backtesting.py), strategies suggested from trades marked on a chart, AI strategy builder (Groq).
 - `backend/src/blockstrat/`: the backend package.
 - `backend/scripts/`: one-off data scripts (the landing page's precomputed demo backtests, candles and trades).
-- `backend/tests/`: API-level tests (pytest) with fixture market data and a fake Gemini client.
+- `backend/tests/`: API-level tests (pytest) with fixture market data and a fake AI client.
 - `frontend/`: Nuxt + Tailwind app: prerendered landing page (`/`) and the client-only builder panel (`/app`).
 - `frontend/app/pages/`: the landing page and the builder panel.
-- `frontend/app/components/`: builder components (editor, results, AI chat, toolbar) and shared pieces (logo, icons, counting number).
-- `frontend/app/blocks/`: Blockly block definitions, toolbox and theme.
-- `frontend/app/components/landing/`: landing-page sections and pieces (rule builder, TradingView-style chart and strategy tester, product window, pinned steps, AI demo).
+- `frontend/app/components/`: pieces shared by the landing page and the builder (TradingView-style chart, strategy tester, rule tile, logo, icons).
+- `frontend/app/components/builder/`: the builder at `/app`: block library with indicator help and the large indicator chart, the Vue Flow canvas of strategy cards with its guide, rule groups with drag and drop, popovers, per-market results with the test settings, assistant and JSON panels, the hand that builds a finished strategy on screen, and the chart view where trades are marked and matching strategies proposed.
+- `frontend/app/components/landing/`: landing-page sections and pieces (read-only builder canvas that builds itself, TradingView-style chart and strategy tester, product window, pinned steps, AI demo).
 - `frontend/app/assets/icons/`: Lucide interface glyphs, inlined by `UiIcon`.
 - `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).
-- `frontend/app/utils/`: pure converters (blocks ↔ strategy JSON) and strategy files/share links.
+- `frontend/app/utils/`: the strategy document (editable model ↔ strategy JSON), the guide, the block library and indicator maths, the popular-strategy templates, the build replay's steps, result summaries, strategy files/share links, drawn trades, the Pine Script export.
+- `frontend/app/composables/`: the strategy editor with undo, backtests per market, the build replay, the simple/advanced mode, the API client, chart themes and the landing demo.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.
 - `frontend/public/fx/`: the taste kit's grain-gradient shader (copied as plain files), the hero's moving ground.
 - `frontend/public/brand-icons/`: real brand and coin logos (fetched with the taste skill's icons.mjs, credits in its JSON).

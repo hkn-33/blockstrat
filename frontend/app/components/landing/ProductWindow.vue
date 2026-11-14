@@ -14,7 +14,77 @@ const market = ref<DemoMarket>('SOLUSDT')
 const stopLoss = ref<DemoStopLoss>(5)
 
 const run = computed(() => demoRun(strategy.value, market.value, stopLoss.value))
+const chartData = computed(() => demoChartData(market.value, run.value))
+const coin = computed(() => demoMarket(market.value))
+const summary = computed(() => runSnapshot(market.value, run.value))
 const rules = computed(() => demoRules(strategy.value, stopLoss.value))
+
+// The strategy builds itself when the rules come into view and again whenever another one is picked: its
+// blocks are carried onto the cards one at a time (about half a second each). The server render and a visitor
+// who asks for less motion get the finished strategy, which is what `revealed` being undefined means.
+interface BoardHandle {
+  fly: (index: number) => Promise<void>
+  cancelFlight: () => void
+}
+
+const board = ref<BoardHandle | null>(null)
+const rulesColumn = ref<HTMLElement | null>(null)
+const revealed = ref<number | undefined>(undefined)
+const blockCount = computed(() => 1 + rules.value.entry.conditions.length + rules.value.exit.conditions.length)
+const BUILD_START_DELAY_MS = 250
+const BLOCK_PAUSE_MS = 80
+
+let buildId = 0
+let hasBuildStarted = false
+let viewObserver: IntersectionObserver | undefined
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, milliseconds))
+}
+
+async function buildStrategy(): Promise<void> {
+  const thisBuild = ++buildId
+  revealed.value = 0
+  await wait(BUILD_START_DELAY_MS)
+  for (let index = 0; index < blockCount.value; index++) {
+    await board.value?.fly(index)
+    if (thisBuild !== buildId) return
+    revealed.value = index + 1
+    await wait(BLOCK_PAUSE_MS)
+    if (thisBuild !== buildId) return
+  }
+}
+
+function startBuild(): void {
+  buildStrategy().catch(error => console.warn('The strategy build was interrupted', error))
+}
+
+function startOnceInView(): void {
+  if (!rulesColumn.value) return
+  viewObserver = new IntersectionObserver(([entry]) => {
+    if (!entry?.isIntersecting) return
+    viewObserver?.disconnect()
+    hasBuildStarted = true
+    startBuild()
+  }, { threshold: 0.25 })
+  viewObserver.observe(rulesColumn.value)
+}
+
+onMounted(() => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  revealed.value = 0
+  startOnceInView()
+})
+
+watch(strategy, () => {
+  if (hasBuildStarted) startBuild()
+})
+
+onBeforeUnmount(() => {
+  buildId++
+  viewObserver?.disconnect()
+  board.value?.cancelFlight()
+})
 </script>
 
 <template>
@@ -64,32 +134,25 @@ const rules = computed(() => demoRules(strategy.value, stopLoss.value))
     </div>
 
     <div class="body">
-      <div class="rules-col">
-        <LandingRuleBuilder
-          :key="strategy"
+      <div ref="rulesColumn" class="rules-col">
+        <LandingStrategyBoard
+          ref="board"
           :market="market"
-          timeframe="4 hours"
+          :name="DEMO_STRATEGY_NAMES[strategy]"
           :entry="rules.entry"
           :exit="rules.exit"
-          theme="auto"
-          entrance
-          flush
+          :revealed="revealed"
+          compact
         />
-        <dl class="costs">
-          <div><dt>Position size</dt><dd>100% of the account</dd></div>
-          <div><dt>Exchange fee</dt><dd>0.1% a side</dd></div>
-          <div><dt>Slippage</dt><dd>0.05% a fill</dd></div>
-          <div><dt>Orders fill</dt><dd>At the next candle's open</dd></div>
-        </dl>
       </div>
       <div class="chart-col">
         <ClientOnly>
-          <LandingTvChart :market="market" :run="run" :delay-ms="300" :height="360" theme="auto" />
+          <TvChart :data="chartData" :name="coin.label" :icon="coin.icon" detail="1D candles, 4h strategy, Binance prices" :delay-ms="300" :height="360" theme="auto" redraw-animated />
           <template #fallback>
             <div class="h-[412px]" />
           </template>
         </ClientOnly>
-        <LandingStrategyTester :market="market" :run="run" />
+        <StrategyTester :summary="summary" :coin="coin.label.split('/')[0]!" />
       </div>
     </div>
   </div>
@@ -170,41 +233,18 @@ const rules = computed(() => demoRules(strategy.value, stopLoss.value))
     grid-template-columns: minmax(0, 23rem) minmax(0, 1fr);
   }
 
+  /* The chart column sets the window's height (the longest strategy's board is shorter), so picking another
+     strategy never moves the page; the board stretches to fill what is left. */
   .rules-col {
+    display: grid;
     border-right: 1px solid var(--panel-line);
   }
-}
-
-.costs {
-  display: grid;
-  gap: 0.1rem;
-  border-top: 1px solid var(--panel-line);
-  padding: 1rem 1.1rem 1.25rem;
-  font-size: 13px;
-}
-
-.costs div {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block: 0.35rem;
-}
-
-.costs dt {
-  color: var(--panel-soft);
-}
-
-.costs dd {
-  font-weight: 600;
-  text-align: right;
 }
 
 .coin {
   width: 1.1rem;
   height: 1.1rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
 }
 
 .chart-col {
