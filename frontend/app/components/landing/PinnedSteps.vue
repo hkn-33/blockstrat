@@ -143,7 +143,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 
 .step-text {
   margin-top: 0.35rem;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.6;
   color: var(--ink-soft);
 }

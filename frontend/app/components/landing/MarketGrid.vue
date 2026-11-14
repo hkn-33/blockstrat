@@ -51,10 +51,6 @@ const verdict = computed(() => marketsVerdict(cards.value.map(card => ({ returnP
         <header class="flex items-center gap-2 font-bold">
           <img :src="`/brand-icons/${card.icon}.svg`" alt="" class="coin">
           {{ card.name }}
-          <span class="verdict" :class="{ 'is-ahead': card.beat }">
-            <UiIcon :name="card.beat ? 'circle-check' : 'x'" />
-            {{ card.beat ? 'Beat holding' : 'Lost to holding' }}
-          </span>
         </header>
         <p class="result" :class="card.result >= 0 ? 'is-up' : 'is-down'">
           {{ formatSignedPercent(card.result) }}
@@ -243,19 +239,6 @@ const verdict = computed(() => marketsVerdict(cards.value.map(card => ({ returnP
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 999px;
-}
-
-.verdict {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.verdict.is-ahead {
-  color: var(--gain-ink);
 }
 
 .result {
