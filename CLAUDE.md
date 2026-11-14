@@ -53,7 +53,6 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - `frontend/public/fx/`: the taste kit's grain-gradient shader (copied as plain files), the hero's moving ground.
 - `frontend/public/brand-icons/`: real brand and coin logos (fetched with the taste skill's icons.mjs, credits in its JSON).
 - `frontend/test/`: Vitest tests of the pure converters.
-- `.github/workflows/`: CI/CD: tests, typecheck and builds on every push and pull request; production deploys of `main` once they pass.
 - `deploy/`: Docker Compose + Caddy for the backend on a VPS.
 - `docs/`: ADRs, deployment guide, agent docs.
 - `.scratch/`: local issue tracker (specs and tickets).
