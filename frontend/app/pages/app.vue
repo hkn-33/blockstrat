@@ -437,6 +437,7 @@ onBeforeUnmount(() => {
             <BuilderTestSettings v-if="isAdvanced" :presets="presets" />
             <p class="disclaimer">
               Simulations on historical Binance prices, not investment advice. Past results do not promise future ones.
+              <NuxtLink to="/terms" target="_blank">Terms</NuxtLink> · <NuxtLink to="/privacy" target="_blank">Privacy</NuxtLink>
             </p>
           </div>
           <BuilderAssistantPanel v-show="rightTab === 'assistant'" :current-strategy="draft" @apply="build($event, name || 'From the assistant')" @close="rightTab = 'result'" />
@@ -801,6 +802,15 @@ onBeforeUnmount(() => {
   padding: 0.75rem 1rem 1rem;
   font-size: 12px;
   color: var(--panel-soft);
+}
+
+.disclaimer a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.disclaimer a:hover {
+  color: var(--panel-ink);
 }
 
 .mobile-tabs {

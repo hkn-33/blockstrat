@@ -29,8 +29,7 @@ const emit = defineEmits<{
 
 const editor = useStrategyEditor()
 const { isAdvanced, setAdvanced } = useBuilderMode()
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value !== 'light')
+const { isDark, toggleTheme } = useThemeToggle()
 
 const menu = ref<'open' | 'save' | 'layout' | null>(null)
 const layoutAnchor = ref<HTMLElement | null>(null)
@@ -145,12 +144,6 @@ async function share(): Promise<void> {
   catch {
     window.prompt('Copy this link', url)
   }
-}
-
-function toggleTheme(): void {
-  const wanted = isDark.value ? 'light' : 'dark'
-  const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  colorMode.preference = wanted === (systemIsDark ? 'dark' : 'light') ? 'system' : wanted
 }
 
 onBeforeUnmount(() => {
