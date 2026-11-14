@@ -80,7 +80,7 @@ async function openFile(event: Event): Promise<void> {
       <div class="paths">
         <button type="button" class="path" @click="describe">
           <span class="path-icon"><UiIcon name="sparkles" /></span>
-          <span><span class="path-title">Describe or paste it</span><span class="path-text">In your words or from another AI: the assistant builds the blocks</span></span>
+          <span><span class="path-title">Describe or paste it</span><span class="path-text">The assistant builds it</span></span>
         </button>
         <button type="button" class="path" :disabled="!savedNames.length" :aria-expanded="isPickingSaved" @click="isPickingSaved = !isPickingSaved">
           <span class="path-icon"><UiIcon name="folder-open" /></span>
@@ -88,11 +88,11 @@ async function openFile(event: Event): Promise<void> {
         </button>
         <button type="button" class="path" @click="fileInput?.click()">
           <span class="path-icon"><UiIcon name="upload" /></span>
-          <span><span class="path-title">Open a file</span><span class="path-text">A strategy .json you downloaded</span></span>
+          <span><span class="path-title">Open a file</span><span class="path-text">A downloaded .json</span></span>
         </button>
         <button type="button" class="path" :aria-expanded="isPickingTemplate" @click="isPickingTemplate = !isPickingTemplate">
           <span class="path-icon"><UiIcon name="lightbulb" /></span>
-          <span><span class="path-title">Pick a popular strategy</span><span class="path-text">{{ STRATEGY_TEMPLATES.length }} well-known ideas, built in front of you</span></span>
+          <span><span class="path-title">Popular strategies</span><span class="path-text">{{ STRATEGY_TEMPLATES.length }} well-known ideas</span></span>
         </button>
       </div>
       <input ref="fileInput" type="file" accept="application/json,.json" class="hidden" @change="openFile">
@@ -334,7 +334,7 @@ async function openFile(event: Event): Promise<void> {
 .template {
   display: flex;
   width: 100%;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.7rem;
   border-radius: 14px;
   padding: 0.65rem 0.75rem;
