@@ -158,7 +158,8 @@ function setNumber(key: string, event: Event): void {
 
     <div v-else-if="operand.kind === 'constant'" class="fields">
       <label class="field">Number
-        <input type="number" inputmode="decimal" step="any" :value="operand.value" @input="setNumber('value', $event)">
+        <!-- No inputmode: the iOS decimal pad has no minus key, and a fixed value can be negative (MACD below 0). -->
+        <input type="number" step="any" :value="operand.value" @input="setNumber('value', $event)">
       </label>
     </div>
   </div>

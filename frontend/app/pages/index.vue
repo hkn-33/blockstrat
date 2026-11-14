@@ -13,8 +13,6 @@ useSeoMeta({
 const featuredRun = demoRun('combo', 'SOLUSDT', 5)
 const featuredDrawdown = Math.round(Math.abs(featuredRun.metrics.max_drawdown_pct))
 
-const PAIRS = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'LTC']
-
 const ASSISTANT_FACTS = [
   { icon: 'file-json', title: 'Blocks, never code', text: 'It answers with the same blocks you would snap together, so you can check every rule it set.' },
   { icon: 'shield-check', title: 'Says what it cannot build', text: 'Ask for something the engine does not do, like short selling, and it tells you instead of guessing.' },
@@ -29,16 +27,7 @@ const MARK_FACTS = [
 
 const COINS = ['bitcoin', 'ethereum', 'solana']
 
-const colorMode = useColorMode()
-const isDark = computed(() => colorMode.value !== 'light')
-
-// Picking the theme the browser already asks for hands control back to the browser, so one stray click
-// is undone by the next and the page follows the system again.
-function toggleTheme(): void {
-  const wanted = isDark.value ? 'light' : 'dark'
-  const systemIsDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-  colorMode.preference = wanted === (systemIsDark ? 'dark' : 'light') ? 'system' : wanted
-}
+const { isDark, toggleTheme } = useThemeToggle()
 
 const HEADLINE_WORDS = 'Test it before you trade it'.split(' ')
 
@@ -114,7 +103,7 @@ const QUOTES = [
 const FAQ = [
   { question: 'Do I need to know how to code?', answer: 'No. Describe the idea in a sentence or snap the blocks together. You never see code.' },
   { question: 'Does BlockStrat trade for me?', answer: 'No. It never places orders, never asks for exchange keys and never touches your money.' },
-  { question: 'Is this investment advice?', answer: 'No. A strategy that worked on past prices can still lose money in the future.' },
+  { question: 'Is this investment advice?', answer: 'No. BlockStrat is a tool for building and testing your own strategies; it never recommends trades. A strategy that worked on past prices can still lose money in the future.' },
   { question: 'Where do the prices come from?', answer: 'Binance public market data: hourly, four-hourly and daily candles for ten large crypto pairs, back to 2017.' },
   { question: 'Can I share a strategy?', answer: 'Yes. Copy the link and anyone who opens it sees your blocks and the result.' },
   { question: 'Does it cost anything?', answer: 'No. It is free and needs no sign-up.' },
@@ -162,7 +151,7 @@ const FAQ = [
             </template>
           </h1>
           <div class="lg:pt-3">
-            <p class="enter-step max-w-[33rem] text-[19px] leading-[1.6] text-[var(--ink-soft)]" style="--step: 0">
+            <p class="enter-step max-w-[33rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]" style="--step: 0">
               Snap a strategy together from blocks, or just describe it. BlockStrat replays it on real Binance prices,
               fees included, and tells you if it beat simply holding.
             </p>
@@ -338,7 +327,7 @@ const FAQ = [
           <p class="quote-result">
             {{ quote.result }}
           </p>
-          <blockquote class="mt-3 text-[17px] leading-[1.6]">
+          <blockquote class="mt-3 text-[18px] leading-[1.6]">
             “{{ quote.text }}”
           </blockquote>
           <figcaption class="mt-6 flex items-center gap-3 text-[14px] text-[var(--muted)]">
@@ -354,7 +343,7 @@ const FAQ = [
         <h2 class="section-title">
           Questions
         </h2>
-        <p class="mt-5 max-w-[24rem] text-[17px] leading-[1.6] text-[var(--ink-soft)]">
+        <p class="mt-5 max-w-[24rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
           The builder opens with an example strategy, so the fastest answer is often to change a block and watch.
         </p>
         <NuxtLink to="/app" class="btn btn-ink mt-8">
@@ -364,7 +353,7 @@ const FAQ = [
       </div>
       <dl class="grid gap-x-10 gap-y-9 sm:grid-cols-2">
         <div v-for="item in FAQ" :key="item.question">
-          <dt class="text-[17px] font-bold text-[var(--ink)]">
+          <dt class="text-[18px] font-bold text-[var(--ink)]">
             {{ item.question }}
           </dt>
           <dd class="mt-2 text-[15px] leading-[1.6] text-[var(--ink-soft)]">
@@ -394,7 +383,8 @@ const FAQ = [
           <div class="max-w-[22rem]">
             <BrandLogo />
             <p class="mt-4 text-[15px] leading-[1.6] text-[var(--ink-soft)]">
-              A no-code backtester for crypto trading ideas. It never trades, never asks for exchange keys and is not investment advice.
+              A tool for building and testing your own crypto strategies on past prices. It does not recommend trades, never trades for
+              you and is not investment advice.
             </p>
           </div>
           <nav aria-label="Footer">
@@ -409,31 +399,17 @@ const FAQ = [
               <li><a href="#faq" class="footer-link">Questions</a></li>
             </ul>
           </nav>
-          <div>
+          <nav aria-label="Legal">
             <h3 class="footer-heading">
-              Markets
-            </h3>
-            <ul class="footer-list footer-list--pairs">
-              <li v-for="pair in PAIRS" :key="pair">
-                {{ pair }}/USDT
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h3 class="footer-heading">
-              Under the hood
+              Legal
             </h3>
             <ul class="footer-list">
-              <li class="flex items-center gap-2">
-                <img src="/brand-icons/binance.svg" alt="" class="footer-icon"> Binance market data
-              </li>
-              <li class="flex items-center gap-2">
-                <UiIcon name="sparkles" class="footer-icon" /> Groq for the assistant
-              </li>
-              <li>Python backtests, Nuxt front end</li>
-              <li>1h, 4h and 1d candles since 2017</li>
+              <li><NuxtLink to="/terms" class="footer-link">Terms of Service</NuxtLink></li>
+              <li><NuxtLink to="/privacy" class="footer-link">Privacy Policy</NuxtLink></li>
+              <!-- The address itself, not "Contact": a mailto link does nothing without a mail app, so it must stay copyable. -->
+              <li><a :href="`mailto:${OPERATOR.email}`" class="footer-link">{{ OPERATOR.email }}</a></li>
             </ul>
-          </div>
+          </nav>
         </div>
         <p class="wordmark" aria-hidden="true">
           BlockStrat
@@ -445,32 +421,6 @@ const FAQ = [
     </footer>
   </div>
 </template>
-
-<style>
-/* Shared by the page and its section components. */
-.lp .wrap {
-  width: min(100% - 2.5rem, 1320px);
-  margin-inline: auto;
-}
-
-@media (min-width: 640px) {
-  .lp .wrap {
-    width: min(100% - 4rem, 1320px);
-  }
-}
-
-.lp .section-title {
-  font-size: clamp(2.1rem, 3.8vw, 3.25rem);
-  font-weight: 700;
-  line-height: 1.06;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
-}
-
-.lp p {
-  text-wrap: pretty;
-}
-</style>
 
 <style scoped>
 .lp {
@@ -537,15 +487,6 @@ const FAQ = [
 
 .nav.is-compact {
   padding-top: 0.6rem;
-}
-
-.lp .theme-icon--sun,
-:root.dark .lp .theme-icon--moon {
-  display: none;
-}
-
-:root.dark .lp .theme-icon--sun {
-  display: inline-flex;
 }
 
 .nav.is-compact .nav-bar {
@@ -676,89 +617,6 @@ const FAQ = [
   box-shadow: 0 0 0 2px var(--hero-bg);
 }
 
-.nav-link:hover,
-.footer-link:hover {
-  color: var(--ink);
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-radius: 10px;
-  padding: 0.95rem 1.5rem;
-  font-size: 16px;
-  font-weight: 700;
-  white-space: nowrap;
-  transition: background-color 160ms, transform 120ms;
-}
-
-.btn:hover .arrow {
-  transform: translateX(4px);
-}
-
-.btn:active {
-  transform: scale(0.97);
-}
-
-.btn-small {
-  padding: 0.6rem 1.1rem;
-  font-size: 15px;
-}
-
-.btn-lime {
-  background: var(--color-lime);
-  color: var(--color-ink);
-}
-
-.btn-lime:hover {
-  background: #d6f87c;
-}
-
-.btn-ink {
-  background: var(--ink);
-  color: var(--page);
-}
-
-.btn-ink:hover {
-  opacity: 0.88;
-}
-
-.theme-toggle {
-  display: grid;
-  width: 2.6rem;
-  height: 2.6rem;
-  place-items: center;
-  cursor: pointer;
-  border-radius: 10px;
-  color: var(--ink-soft);
-  box-shadow: inset 0 0 0 1px var(--line);
-  transition: background-color 160ms, color 160ms;
-}
-
-.theme-toggle:hover {
-  background: var(--tint);
-  color: var(--ink);
-}
-
-.theme-toggle:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
-.arrow {
-  width: 1.1em;
-  height: 1.1em;
-  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.btn:focus-visible,
-.nav-link:focus-visible,
-.footer-link:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
 /* A quiet tinted ground that sets the product sections apart from the white ones. */
 .tinted {
   background: var(--canvas-bg);
@@ -835,7 +693,7 @@ const FAQ = [
 }
 
 .tile-title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -903,7 +761,7 @@ const FAQ = [
 }
 
 .quote-result {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--accent-ink);
@@ -930,7 +788,7 @@ const FAQ = [
 
 @media (min-width: 768px) {
   .footer-grid {
-    grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -945,17 +803,6 @@ const FAQ = [
   margin-top: 1rem;
   font-size: 15px;
   color: var(--ink-soft);
-}
-
-.footer-list--pairs {
-  grid-template-columns: repeat(2, max-content);
-  column-gap: 1.5rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.footer-icon {
-  width: 1.1rem;
-  height: 1.1rem;
 }
 
 .closing {

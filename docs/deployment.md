@@ -19,26 +19,25 @@ Steps that need your own accounts are marked **(you)**.
    ```
    Open `http://<VPS IP>:8000`, create the admin account, and keep ports 80 and 443 open in the firewall.
 2. **(you)** Point a domain at the VPS: a DNS `A` record such as `api.example.com` → the VPS IP.
-3. **(you)** In Coolify: **Projects → New → Add Resource → Application**, then the repository. For a private repository connect GitHub with **GitHub App**, which also deploys on every push.
+3. **(you)** In Coolify: **Projects → New → Add Resource → Application**, then the repository. For a private repository either connect GitHub with **GitHub App**, or pick **Private Repository (with Deploy Key)**: add the key's public half under the repository's **Settings → Deploy keys** (read-only) and use the SSH address `git@github.com:<owner>/<repo>.git`. Deploys come from CI, see step 4.
 4. Settings of the application:
    - **Branch**: `main`
    - **Build Pack**: `Dockerfile`
    - **Base Directory**: `/backend`
    - **Dockerfile Location**: `/Dockerfile`
    - **Ports Exposes**: `8000`
-   - **Domains**: `https://api.example.com` (Coolify's proxy gets and renews the HTTPS certificate)
+   - **Domains**: `https://api.example.com` (Coolify's proxy gets and renews the HTTPS certificate). Without a domain
+     of your own, use the free address Coolify generates (`…sslip.io`), changed to start with `https://`: the site on
+     Vercel is HTTPS, and browsers block its calls to a plain `http://` API.
 5. **Environment Variables** (Developer view accepts the whole list at once). Leave **Build Variable** unticked: these are needed only when the app runs.
    ```
    GROQ_API_KEY=<your key from console.groq.com/keys>
-   GROQ_MODEL=openai/gpt-oss-120b
    FRONTEND_ORIGINS=https://blockstrat.example.com,https://blockstrat.vercel.app
-   AI_REQUESTS_PER_IP_PER_HOUR=10
-   AI_REQUESTS_PER_DAY=200
-   BACKTESTS_PER_IP_PER_HOUR=1500
-   SEARCHES_PER_IP_PER_HOUR=30
-   CHARTS_PER_IP_PER_HOUR=300
    ```
-   `FRONTEND_ORIGINS` is filled in properly in step 3 below, once the Vercel address is known.
+   `FRONTEND_ORIGINS` is filled in properly in step 3 below, once the Vercel address is known. Everything else has a
+   default and is optional: `GROQ_MODEL` (default `openai/gpt-oss-120b`), `AI_REQUESTS_PER_IP_PER_HOUR` (10),
+   `AI_REQUESTS_PER_DAY` (200), `BACKTESTS_PER_IP_PER_HOUR` (1500), `SEARCHES_PER_IP_PER_HOUR` (30),
+   `CHARTS_PER_IP_PER_HOUR` (300); set one only to change it without a new release.
 6. **Persistent Storage → Add → Volume**: destination path `/data`. The price history from Binance is cached there and survives redeploys. Use a volume, not a bind mount: the container runs as a non-root user that owns `/data` in the image, and a new volume keeps that owner.
 7. **Health Check**: path `/api/instruments`, port `8000`.
 8. **Deploy**. When it is up, `https://api.example.com/api/instruments` returns the list of markets. The first start downloads the Binance history in the background, about a minute.
@@ -62,6 +61,32 @@ Steps that need your own accounts are marked **(you)**.
    - A **CORS** error means the site's address is missing from `FRONTEND_ORIGINS` or differs from it (`www.`, `http` instead of `https`, a trailing slash).
    - **Failed to fetch** with nothing else: `NUXT_PUBLIC_API_BASE` is wrong, or the API is not up yet.
    - Vercel's preview deployments have their own addresses; add one to `FRONTEND_ORIGINS` to test it, or test on the production address.
+
+## 4. CI/CD: deploy only what passed the checks
+
+`.github/workflows/ci.yml` runs on every push to `main` or `dev` and on every pull request: the backend tests, a build
+of the backend's Docker image, and the frontend's tests, typecheck and build. On a push to `main`, once all of them
+pass, its `deploy` job deploys the backend (Coolify) and then the frontend (Vercel). A failing check deploys nothing.
+
+For that, both platforms must stop deploying `main` on their own:
+
+1. **(you)** Coolify: in the application's settings, turn **Auto Deploy** off (with a deploy key, also delete any
+   webhook to Coolify under the repository's **Settings → Webhooks** on GitHub). Then under **Webhooks** copy the
+   **Deploy Webhook** URL, and under **Keys & Tokens → API tokens** create a token with the `deploy` permission.
+2. **(you)** Vercel: `frontend/vercel.json` already turns off Git deploys of `main` (pull requests and other branches
+   still get preview deployments). Create a token under **Account Settings → Tokens**. The org and project IDs are
+   under the project's **Settings → General** (or in `.vercel/project.json` after `npx vercel link` in `frontend/`).
+3. **(you)** GitHub: **Settings → Environments → New environment** named `production`, and add these secrets to it:
+   ```
+   COOLIFY_WEBHOOK      the Deploy Webhook URL
+   COOLIFY_TOKEN        the Coolify API token
+   VERCEL_TOKEN         the Vercel token
+   VERCEL_ORG_ID        the Vercel team or account ID
+   VERCEL_PROJECT_ID    the Vercel project ID
+   ```
+   The environment can also require your approval before each production deploy (**Required reviewers**).
+
+Work on `dev`, open a pull request to `main`, and merge it when the checks are green: the merge deploys.
 
 ## What protects the backend
 
