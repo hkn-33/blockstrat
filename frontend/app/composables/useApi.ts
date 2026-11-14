@@ -2,14 +2,18 @@ import type {
   AiBuildFailed,
   AiBuildOk,
   AiMessage,
+  BarsResponse,
   ExecutionPreset,
   InstrumentsResponse,
   MissingResponse,
   ResultResponse,
   StrategyDraft,
+  SuggestRequest,
+  SuggestResponse,
 } from '~/types/api'
 
 export type BacktestMode = 'preview' | 'full'
+export type BacktestPeriod = '3m' | '6m' | '1y' | '3y' | 'all'
 export type AiBuildResponse = AiBuildOk | AiBuildFailed
 export type BacktestResponse = MissingResponse | ResultResponse
 
@@ -17,14 +21,20 @@ export function useApi() {
   const baseURL = useRuntimeConfig().public.apiBase
 
   return {
-    backtest(strategy: StrategyDraft, mode: BacktestMode, signal?: AbortSignal): Promise<BacktestResponse> {
-      return $fetch<BacktestResponse>('/api/backtest', { baseURL, method: 'POST', body: { strategy, mode }, signal })
+    backtest(strategy: StrategyDraft, mode: BacktestMode, period: BacktestPeriod, signal?: AbortSignal): Promise<BacktestResponse> {
+      return $fetch<BacktestResponse>('/api/backtest', { baseURL, method: 'POST', body: { strategy, mode, period }, signal })
     },
     instruments(): Promise<InstrumentsResponse> {
       return $fetch<InstrumentsResponse>('/api/instruments', { baseURL })
     },
     executionPresets(): Promise<ExecutionPreset[]> {
       return $fetch<ExecutionPreset[]>('/api/execution-presets', { baseURL })
+    },
+    bars(instrument: string, timeframe: SuggestRequest['timeframe']): Promise<BarsResponse> {
+      return $fetch<BarsResponse>('/api/bars', { baseURL, query: { instrument, timeframe } })
+    },
+    suggestStrategies(request: SuggestRequest): Promise<SuggestResponse> {
+      return $fetch<SuggestResponse>('/api/suggest-strategies', { baseURL, method: 'POST', body: request })
     },
     buildStrategy(messages: AiMessage[], currentStrategy: StrategyDraft | null): Promise<AiBuildResponse> {
       return $fetch<AiBuildResponse>('/api/ai/build-strategy', {

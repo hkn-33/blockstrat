@@ -1,37 +1,84 @@
 # Deployment
 
-The frontend is a static Nuxt SPA on Vercel. The backend runs on a VPS with Docker Compose; Caddy in front of it provides HTTPS automatically.
+The backend (FastAPI, `backend/`) runs on a VPS under [Coolify](https://coolify.io), which builds it from the repository's Dockerfile and puts it behind HTTPS. The frontend (Nuxt, `frontend/`) runs on Vercel. The browser loads the site from Vercel and calls the API on its own domain; the API answers only the site's origins, and the Groq key never leaves the backend.
 
-## Backend on the VPS
+```
+browser ──► https://blockstrat.example.com   (Vercel: the Nuxt site)
+   │
+   └──────► https://api.example.com          (Coolify on the VPS: Traefik ─► the backend container)
+                                                  └─► Groq, Binance
+```
 
 Steps that need your own accounts are marked **(you)**.
 
-1. **(you)** Point a domain at the VPS: an `A` record such as `api.example.com` → the VPS IP. Ports 80 and 443 must be open.
-2. **(you)** Install Docker with the Compose plugin on the VPS.
-3. Copy the repository to the VPS (for example `git clone`).
-4. Create the environment file and fill it in:
+## 1. Backend on Coolify
+
+1. **(you)** Install Coolify on the VPS (Ubuntu or Debian, 2 GB RAM or more), as root:
    ```bash
-   cd deploy && cp .env.example .env
+   curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
    ```
-   Set `API_DOMAIN`, `FRONTEND_ORIGINS` (the Vercel URL from the next section) and, for the AI chat, `GEMINI_API_KEY`.
-5. Start it:
-   ```bash
-   docker compose up -d --build
+   Open `http://<VPS IP>:8000`, create the admin account, and keep ports 80 and 443 open in the firewall.
+2. **(you)** Point a domain at the VPS: a DNS `A` record such as `api.example.com` → the VPS IP.
+3. **(you)** In Coolify: **Projects → New → Add Resource → Application**, then the repository. For a private repository connect GitHub with **GitHub App**, which also deploys on every push.
+4. Settings of the application:
+   - **Branch**: `main`
+   - **Build Pack**: `Dockerfile`
+   - **Base Directory**: `/backend`
+   - **Dockerfile Location**: `/Dockerfile`
+   - **Ports Exposes**: `8000`
+   - **Domains**: `https://api.example.com` (Coolify's proxy gets and renews the HTTPS certificate)
+5. **Environment Variables** (Developer view accepts the whole list at once). Leave **Build Variable** unticked: these are needed only when the app runs.
    ```
-6. Check it: `https://<API_DOMAIN>/api/instruments` returns the instrument list. The first start downloads the Binance history in the background (about a minute); the parquet cache lives in the `market-data` volume and survives restarts and rebuilds.
+   GROQ_API_KEY=<your key from console.groq.com/keys>
+   GROQ_MODEL=openai/gpt-oss-120b
+   FRONTEND_ORIGINS=https://blockstrat.example.com,https://blockstrat.vercel.app
+   AI_REQUESTS_PER_IP_PER_HOUR=10
+   AI_REQUESTS_PER_DAY=200
+   BACKTESTS_PER_IP_PER_HOUR=1500
+   SEARCHES_PER_IP_PER_HOUR=30
+   CHARTS_PER_IP_PER_HOUR=300
+   ```
+   `FRONTEND_ORIGINS` is filled in properly in step 3 below, once the Vercel address is known.
+6. **Persistent Storage → Add → Volume**: destination path `/data`. The price history from Binance is cached there and survives redeploys. Use a volume, not a bind mount: the container runs as a non-root user that owns `/data` in the image, and a new volume keeps that owner.
+7. **Health Check**: path `/api/instruments`, port `8000`.
+8. **Deploy**. When it is up, `https://api.example.com/api/instruments` returns the list of markets. The first start downloads the Binance history in the background, about a minute.
 
-Update after code changes:
+## 2. Frontend on Vercel
 
-```bash
-git pull && cd deploy && docker compose up -d --build
-```
+1. **(you)** In Vercel: **Add New → Project**, import the same repository.
+2. **Root Directory**: `frontend`. Vercel recognises Nuxt; keep its build settings.
+3. **Environment Variables** (Production and Preview):
+   ```
+   NUXT_PUBLIC_API_BASE=https://api.example.com
+   ```
+   No trailing slash. The API key does not belong here: everything in the frontend is public.
+4. **Deploy**, then add your own domain under **Settings → Domains** if you have one.
 
-## Frontend on Vercel
+## 3. Make them talk to each other
 
-1. **(you)** Import the repository in Vercel and set **Root Directory** to `frontend`. Vercel detects Nuxt.
-2. **(you)** Add the environment variable `NUXT_PUBLIC_API_BASE=https://<API_DOMAIN>`.
-3. Deploy. Put the resulting URL (and any custom domain) into `FRONTEND_ORIGINS` on the VPS and restart the backend: `docker compose up -d`.
+1. In Coolify, set `FRONTEND_ORIGINS` to every address the site is opened from, exactly as the browser shows it (`https://`, no trailing slash, comma separated), for example `https://blockstrat.example.com,https://blockstrat.vercel.app`.
+2. **Redeploy** the backend in Coolify (environment changes apply on the next deploy).
+3. Check: open the site, open the browser's developer tools → **Network**, and load `/app`. Requests to `api.example.com/api/...` answer `200`.
+   - A **CORS** error means the site's address is missing from `FRONTEND_ORIGINS` or differs from it (`www.`, `http` instead of `https`, a trailing slash).
+   - **Failed to fetch** with nothing else: `NUXT_PUBLIC_API_BASE` is wrong, or the API is not up yet.
+   - Vercel's preview deployments have their own addresses; add one to `FRONTEND_ORIGINS` to test it, or test on the production address.
+
+## What protects the backend
+
+- **Limits per client address**, per hour, on every endpoint that costs the server work: backtests, strategy searches, charts and the AI, plus a daily total for the AI so the Groq quota cannot be used up. Over a limit the API answers `429` with `Retry-After`. The numbers are the variables above.
+- **At most two strategy searches at once**; more get `503` and try again shortly.
+- **Real client addresses**: the address is taken from the proxy's `X-Forwarded-For` only when the request comes from a private network, where Coolify's proxy runs, so a client cannot fake its address to dodge the limits (`FORWARDED_ALLOW_IPS` in the Dockerfile).
+- **Request size** is capped at 256 KB, refused before it is read.
+- **CORS** lets only the site's own origins call the API from a browser.
+- **The AI** gets what users type as data, never as instructions; it can only answer with strategy JSON, which is validated, and never runs code. Provider errors are answered as "AI is resting", without details.
+- **Logs**: no access log (it would keep visitors' addresses), no request bodies or prompts, no keys; an error logs only its kind and the path.
+- **No public API docs** (`/docs`, `/openapi.json`); set `API_DOCS=1` only while developing.
+- The container runs as a **non-root user**, and answers carry `nosniff`, `no-referrer` and `DENY` framing headers.
 
 ## Secrets
 
-`deploy/.env` holds the Gemini key. It is git-ignored; never commit it. The frontend never sees the key: all AI calls go through the backend, which applies the per-IP and daily limits.
+The Groq key lives only in Coolify's environment variables, and locally in `backend/.env`. Both are outside git (`.env` is git-ignored); never commit a key, never put it in a `NUXT_PUBLIC_` variable. If a key leaks, revoke it at console.groq.com/keys and set the new one in Coolify.
+
+## Without Coolify
+
+`deploy/` holds an equivalent Docker Compose setup with Caddy for HTTPS: copy `deploy/.env.example` to `deploy/.env`, fill it in, and run `docker compose up -d --build` in `deploy/`.

@@ -3,7 +3,8 @@ import type { DemoStrategy } from '~/composables/useLandingDemo'
 
 // One strategy at a time on three coins over the same 16 months, 5% stop: real backtests side by side,
 // so a visitor sees that rules which work on one coin can fail on the next. Each card says one thing:
-// what the rules made, what holding made, and a line of each.
+// what the rules made, what holding made, and a line of each. Under the cards sits what the builder shows
+// for a strategy tested on several markets: its one-sentence verdict and its comparison table.
 const STRATEGIES: { value: DemoStrategy, label: string, detail: string }[] = [
   { value: 'combo', label: 'Trend with filter', detail: 'Buy when the 20 EMA crosses above the 50 SMA and RSI is under 70' },
   { value: 'trend', label: 'Trend', detail: 'Buy when the 20 EMA crosses above the 50 SMA, sell on the cross back' },
@@ -18,8 +19,10 @@ const cards = computed(() => COMPARISON_MARKETS.map((market) => {
   const coin = market.label.split('/')[0]!
   const result = run.metrics.total_return_pct
   const holding = run.metrics.buy_and_hold_return_pct
-  return { market: market.value, name: market.name, icon: market.icon, coin, run, result, holding, beat: result > holding }
+  return { market: market.value, name: market.name, icon: market.icon, coin, run, result, holding, beat: result > holding, summary: runSnapshot(market.value, run) }
 }))
+
+const verdict = computed(() => marketsVerdict(cards.value.map(card => ({ returnPct: card.result, isPending: false }))))
 </script>
 
 <template>
@@ -71,10 +74,113 @@ const cards = computed(() => COMPARISON_MARKETS.map((market) => {
         </p>
       </article>
     </div>
+
+    <div class="compare mt-4">
+      <p class="compare-verdict">
+        {{ verdict }}
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Market</th>
+            <th scope="col" class="num">Return</th>
+            <th scope="col" class="num">vs holding</th>
+            <th scope="col" class="num is-extra">Biggest drop</th>
+            <th scope="col" class="num is-extra">Trades</th>
+            <th scope="col" class="num">Profitable</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="card in cards" :key="card.market">
+            <th scope="row">
+              <span class="row-market"><img :src="`/brand-icons/${card.icon}.svg`" alt="" class="coin"><span>{{ card.coin }}<span class="pair">/USDT</span></span></span>
+            </th>
+            <td class="num" :class="card.result >= 0 ? 'is-up' : 'is-down'">{{ formatSignedPercent(card.result) }}</td>
+            <td class="num" :class="card.beat ? 'is-up' : 'is-down'">{{ formatSignedPercent(card.result - card.holding).replace('%', ' pts') }}</td>
+            <td class="num is-extra">{{ formatSignedPercent(card.summary.max_drawdown_pct) }}</td>
+            <td class="num is-extra">{{ card.summary.trade_count }}</td>
+            <td class="num">{{ Math.round(card.summary.win_rate_pct) }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* The builder's "Compare markets" table, in the landing page's card. */
+.compare {
+  overflow-x: auto;
+  border-radius: 20px;
+  background: var(--surface);
+  padding: 1rem 1.25rem 0.75rem;
+  box-shadow: var(--card-shadow);
+}
+
+.compare-verdict {
+  font-weight: 700;
+}
+
+.compare table {
+  width: 100%;
+  margin-top: 0.6rem;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.compare th,
+.compare td {
+  border-top: 1px solid var(--line);
+  padding: 0.55rem 0.5rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.compare thead th {
+  border-top: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.compare tbody th {
+  font-weight: 700;
+}
+
+.row-market {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  vertical-align: middle;
+}
+
+/* A phone keeps the columns that answer "did it work": the coin, its return, holding and the win rate. */
+@media (max-width: 639px) {
+  .compare table {
+    font-size: 13px;
+  }
+
+  .compare .is-extra,
+  .compare .pair {
+    display: none;
+  }
+}
+
+.compare .num {
+  text-align: right;
+}
+
+.compare .is-up {
+  font-weight: 700;
+  color: var(--gain-ink);
+}
+
+.compare .is-down {
+  font-weight: 700;
+  color: var(--loss-ink);
+}
+
 .segmented {
   display: inline-flex;
   gap: 2px;
@@ -137,8 +243,6 @@ const cards = computed(() => COMPARISON_MARKETS.map((market) => {
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 1px;
 }
 
 .verdict {

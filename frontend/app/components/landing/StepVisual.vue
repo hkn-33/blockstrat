@@ -15,14 +15,17 @@ const PACES = ['1 hour', '4 hours', '1 day']
 const QUERY = 'SOL/USDT'
 
 const RULES = demoRules('combo', 5)
-const CONDITION_COUNT = RULES.entry.conditions.length + RULES.exit.conditions.length
+// The market and every condition are blocks the scroll lands one by one.
+const BLOCK_COUNT = 1 + RULES.entry.conditions.length + RULES.exit.conditions.length
 const run = demoRun('combo', 'SOLUSDT', 5)
+const chartData = demoChartData('SOLUSDT', run)
 
 const typed = computed(() => QUERY.slice(0, Math.round(Math.min(1, props.progress / 0.5) * QUERY.length)))
 const isPicked = computed(() => props.progress >= 0.6)
 const pace = computed(() => (props.progress >= 0.85 ? '4 hours' : '1 day'))
-const visibleConditions = computed(() => Math.max(1, Math.ceil(props.progress * CONDITION_COUNT)))
+const landedBlocks = computed(() => Math.max(1, Math.ceil(props.progress * BLOCK_COUNT)))
 const chartProgress = computed(() => Math.max(0.04, props.progress))
+const summary = computed(() => runSnapshot('SOLUSDT', run, chartProgress.value))
 
 function matches(pair: string): boolean {
   return pair.startsWith(typed.value)
@@ -61,26 +64,24 @@ function matches(pair: string): boolean {
   </div>
 
   <div v-else-if="step === 1" class="panel">
-    <LandingRuleBuilder
+    <LandingStrategyBoard
       market="SOLUSDT"
-      timeframe="4 hours"
+      :name="DEMO_STRATEGY_NAMES.combo"
       :entry="RULES.entry"
       :exit="RULES.exit"
-      theme="auto"
-      flush
-      entrance
-      :visible-count="visibleConditions"
+      :revealed="landedBlocks"
+      compact
     />
   </div>
 
   <div v-else class="panel">
     <ClientOnly>
-      <LandingTvChart market="SOLUSDT" :run="run" :height="260" theme="auto" :progress="chartProgress" />
+      <TvChart :data="chartData" name="SOL/USDT" icon="solana" detail="1D candles, 4h strategy, Binance prices" :height="260" theme="auto" :progress="chartProgress" />
       <template #fallback>
         <div class="h-[312px]" />
       </template>
     </ClientOnly>
-    <LandingStrategyTester market="SOLUSDT" :run="run" :progress="chartProgress" />
+    <StrategyTester :summary="summary" coin="SOL" />
   </div>
 </template>
 
@@ -101,8 +102,6 @@ function matches(pair: string): boolean {
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: #ffffff;
-  padding: 2px;
 }
 
 .search {
