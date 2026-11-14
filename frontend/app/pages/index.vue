@@ -91,7 +91,7 @@ onBeforeUnmount(() => {
   groundEffect?.destroy()
 })
 
-// Placeholder proof: invented for the preview, replace with real testers before launch. The numbers in
+// Placeholder proof, hidden on the page (see the commented-out section): invented for the preview, replace with real testers. The numbers in
 // them match real demo backtests (buying the dip on ETH, the trend rules on Chainlink).
 const QUOTES = [
   { text: 'I copied an RSI dip strategy from a video and was about to put $2,000 on it. On Ethereum the test said minus 47%. I kept my money.', name: 'Marta K.', detail: 'Tested 14 strategies', result: 'Kept $2,000' },
@@ -163,8 +163,9 @@ useHead({
             <UiIcon name="sun" class="theme-icon theme-icon--sun" />
             <UiIcon name="moon" class="theme-icon theme-icon--moon" />
           </button>
+          <!-- The full label does not fit beside the logo on a phone. -->
           <NuxtLink to="/app" class="btn btn-lime btn-small">
-            Open the builder
+            <span class="sm:hidden">Try it</span><span class="hidden sm:inline">Open the builder</span>
           </NuxtLink>
         </div>
       </div>
@@ -349,6 +350,7 @@ useHead({
       </div>
     </section>
 
+    <!-- Hidden until there are real testers' quotes: the ones in QUOTES are invented.
     <section class="wrap pt-24 lg:pt-28" aria-labelledby="quotes-title">
       <h2 id="quotes-title" class="section-title max-w-[36rem]">
         What early testers found
@@ -368,6 +370,7 @@ useHead({
         </figure>
       </div>
     </section>
+    -->
 
     <section id="faq" class="wrap grid scroll-mt-4 gap-12 py-24 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:py-28">
       <div>
@@ -452,7 +455,7 @@ useHead({
           BlockStrat
         </p>
         <p class="border-t border-[var(--line)] py-8 text-[14px] text-[var(--muted)]">
-          © 2026 BlockStrat · Beta. The tester quotes on this page are placeholders.
+          © 2026 BlockStrat · Beta
         </p>
       </div>
     </footer>
@@ -498,6 +501,17 @@ useHead({
     padding 360ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 240ms,
     box-shadow 240ms;
+}
+
+/* On a phone the logo, the theme toggle and the button only just fit side by side. */
+@media (max-width: 420px) {
+  .nav-bar {
+    gap: 0.5rem;
+  }
+
+  .nav-bar .btn-small {
+    padding-inline: 0.8rem;
+  }
 }
 
 @media (min-width: 640px) {

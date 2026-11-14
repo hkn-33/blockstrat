@@ -208,7 +208,8 @@ function draw(): void {
     equitySeries!.setData(upTo(equityData))
     holdingSeries!.setData(upTo(holdingData))
     markers!.setMarkers(allMarkers.filter(marker => (marker.time as number) <= lastTime))
-    if (props.interactive && periodChanged && !isAnimating) showLatest(candleData.length)
+    // A new result opens on the whole tested period, so the chart matches the period picked above it.
+    if (props.interactive && periodChanged && !isAnimating) showAll()
     else if (!props.interactive || isAnimating || props.progress !== undefined) {
       chart!.timeScale().setVisibleLogicalRange({ from: -2, to: candleData.length + 2 })
     }
@@ -252,7 +253,7 @@ function focusTrade(trade: ChartTrade): void {
   fitPrices()
 }
 
-// A chart to read opens on the latest candles at a width a trader is used to; "Show all" zooms out.
+// "Back to latest" brings the newest candles in at a width a trader is used to.
 const READABLE_BAR_WIDTH = 8
 
 function showLatest(candleCount: number): void {
@@ -302,7 +303,8 @@ onMounted(() => {
   chart = createChart(container.value!, {
     ...base,
     crosshair: { ...base.crosshair, mode: CrosshairMode.Normal },
-    timeScale: { ...base.timeScale, rightOffset: 2, timeVisible: props.interactive },
+    // The default 0.5px floor per candle keeps a year of 4-hour candles from fitting; this lets the whole period show.
+    timeScale: { ...base.timeScale, rightOffset: 2, timeVisible: props.interactive, minBarSpacing: 0.05 },
     localization: { ...base.localization, priceFormatter: price },
     handleScroll: props.interactive,
     handleScale: props.interactive,

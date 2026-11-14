@@ -324,13 +324,16 @@ onBeforeUnmount(() => {
   position: relative;
   display: inline-flex;
   align-items: center;
+  /* Grows into the free space but starts small, so a long row gives up name width before it wraps. */
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: min(22rem, 34vw);
   border-left: 1px solid var(--panel-line);
   padding-left: 0.6rem;
 }
 
 .strategy-name input {
-  width: 22rem;
-  max-width: 34vw;
+  width: 100%;
   border-radius: 8px;
   background: transparent;
   padding: 0.3rem 1.8rem 0.3rem 0.4rem;
@@ -593,7 +596,13 @@ onBeforeUnmount(() => {
   padding-top: 0.5rem;
 }
 
-@media (max-width: 1100px) {
+/* Below this the labelled file buttons no longer fit on one row: they turn into icon buttons. */
+@media (max-width: 1399px) {
+  .file-actions .control {
+    width: 2.25rem;
+    padding-inline: 0;
+  }
+
   .label {
     position: absolute;
     width: 1px;
