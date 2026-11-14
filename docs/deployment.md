@@ -19,7 +19,7 @@ Steps that need your own accounts are marked **(you)**.
    ```
    Open `http://<VPS IP>:8000`, create the admin account, and keep ports 80 and 443 open in the firewall.
 2. **(you)** Point a domain at the VPS: a DNS `A` record such as `api.example.com` → the VPS IP.
-3. **(you)** In Coolify: **Projects → New → Add Resource → Application**, then the repository. For a private repository connect GitHub with **GitHub App**, which also deploys on every push.
+3. **(you)** In Coolify: **Projects → New → Add Resource → Application**, then the repository. For a private repository connect GitHub with **GitHub App**. Deploys come from CI, see step 4.
 4. Settings of the application:
    - **Branch**: `main`
    - **Build Pack**: `Dockerfile`
@@ -62,6 +62,31 @@ Steps that need your own accounts are marked **(you)**.
    - A **CORS** error means the site's address is missing from `FRONTEND_ORIGINS` or differs from it (`www.`, `http` instead of `https`, a trailing slash).
    - **Failed to fetch** with nothing else: `NUXT_PUBLIC_API_BASE` is wrong, or the API is not up yet.
    - Vercel's preview deployments have their own addresses; add one to `FRONTEND_ORIGINS` to test it, or test on the production address.
+
+## 4. CI/CD: deploy only what passed the checks
+
+`.github/workflows/ci.yml` runs on every push to `main` or `dev` and on every pull request: the backend tests, a build
+of the backend's Docker image, and the frontend's tests, typecheck and build. On a push to `main`, once all of them
+pass, its `deploy` job deploys the backend (Coolify) and then the frontend (Vercel). A failing check deploys nothing.
+
+For that, both platforms must stop deploying `main` on their own:
+
+1. **(you)** Coolify: in the application's settings, turn **Auto Deploy** off. Then under **Webhooks** copy the
+   **Deploy Webhook** URL, and under **Keys & Tokens → API tokens** create a token with the `deploy` permission.
+2. **(you)** Vercel: `frontend/vercel.json` already turns off Git deploys of `main` (pull requests and other branches
+   still get preview deployments). Create a token under **Account Settings → Tokens**. The org and project IDs are
+   under the project's **Settings → General** (or in `.vercel/project.json` after `npx vercel link` in `frontend/`).
+3. **(you)** GitHub: **Settings → Environments → New environment** named `production`, and add these secrets to it:
+   ```
+   COOLIFY_WEBHOOK      the Deploy Webhook URL
+   COOLIFY_TOKEN        the Coolify API token
+   VERCEL_TOKEN         the Vercel token
+   VERCEL_ORG_ID        the Vercel team or account ID
+   VERCEL_PROJECT_ID    the Vercel project ID
+   ```
+   The environment can also require your approval before each production deploy (**Required reviewers**).
+
+Work on `dev`, open a pull request to `main`, and merge it when the checks are green: the merge deploys.
 
 ## What protects the backend
 
