@@ -27,8 +27,19 @@ export default defineNuxtConfig({
   vite: { plugins: [tailwindcss()] },
   app: {
     head: {
-      title: 'BlockStrat: build and test trading strategies from blocks',
-      meta: [{ name: 'description', content: 'Snap together a trading strategy from blocks, or describe it in plain words, and see how it would have done on years of real crypto prices. No code.' }],
+      htmlAttrs: { lang: 'en' },
+      title: 'BlockStrat: no-code crypto strategy builder and backtester',
+      // Shared by every page; each page sets its own title, description and address (usePageMeta).
+      meta: [
+        { name: 'description', content: 'Build a crypto trading strategy from blocks or describe it to the AI assistant, then backtest it on years of real Binance prices with fees. Free, no code, no sign-up.' },
+        { property: 'og:site_name', content: 'BlockStrat' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: 'https://blockstrat.vercel.app/og.jpg' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: 'https://blockstrat.vercel.app/og.jpg' },
+      ],
       // The SVG follows the system theme; the .ico is the fallback for browsers without SVG icons.
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

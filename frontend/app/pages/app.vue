@@ -6,7 +6,12 @@ import type { BacktestPeriod } from '~/composables/useApi'
 
 // The builder in three columns: the block library on the left, the strategy as cards on a canvas in the
 // middle, and the result with the assistant on the right. A first visit starts empty and guided.
-useHead({ title: 'BlockStrat builder', bodyAttrs: { class: 'app' } })
+usePageMeta(
+  '/app',
+  'Strategy builder · BlockStrat',
+  'Snap a crypto trading strategy together from blocks and backtest it on real Binance prices, or mark trades on a chart and get matching strategies.',
+)
+useHead({ bodyAttrs: { class: 'app' } })
 
 // The landing page's featured strategy, one click away for anyone who wants to see a finished one.
 const EXAMPLE = STRATEGY_TEMPLATES[0]!

@@ -1,0 +1,24 @@
+# BlockStrat
+
+> BlockStrat is a free, no-code web app (in beta) for building crypto trading strategies and backtesting them on historical Binance prices. You snap a strategy together from blocks, or describe it in plain language to an AI assistant that builds the blocks, and see how it would have performed, with fees and slippage counted. It never trades, never connects to an exchange and is not investment advice.
+
+## What it does
+
+- Build a strategy from blocks: market, timeframe, entry rule, exit rule, stop-loss, take-profit, trailing stop, position size, long and short sides.
+- Indicators: SMA, EMA, RSI, MACD, Bollinger Bands, Stochastic, highest and lowest price, price change and relative volume, combined with and/or/not groups.
+- Backtest on hourly, 4-hour and daily candles of ten large crypto pairs (BTC, ETH, SOL and others) back to 2017. Orders fill at the next bar's open, so there is no look-ahead.
+- AI assistant: describe a strategy in a sentence and get editable blocks. During the beta it answers up to 10 messages an hour per visitor.
+- Mark trades on a price chart and get strategies whose rules would have taken similar trades.
+- Save strategies in the browser, download them as JSON, export them as TradingView Pine Script, share them by link.
+
+## Pricing and license
+
+- Free for personal use, no account or sign-up. Business use needs an agreement with the operator.
+- Source code is open source under AGPL-3.0: https://github.com/hkn-33/blockstrat
+
+## Pages
+
+- [Home](https://blockstrat.vercel.app/): what BlockStrat is, how it works, FAQ
+- [Builder](https://blockstrat.vercel.app/app): the app itself
+- [Terms of Service](https://blockstrat.vercel.app/terms)
+- [Privacy Policy](https://blockstrat.vercel.app/privacy)

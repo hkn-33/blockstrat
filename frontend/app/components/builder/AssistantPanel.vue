@@ -220,7 +220,7 @@ function onKeydown(event: KeyboardEvent): void {
       {{ input.length.toLocaleString('en-US') }} of {{ MAX_MESSAGE_LENGTH.toLocaleString('en-US') }} characters
     </p>
     <p class="privacy">
-      Don't share personal data: messages go to Groq's AI model. <NuxtLink to="/privacy#assistant" target="_blank">Privacy</NuxtLink>
+      Beta: up to {{ AI_MESSAGES_PER_HOUR }} messages an hour. Don't share personal data: messages go to Groq's AI model. <NuxtLink to="/privacy#assistant" target="_blank">Privacy</NuxtLink>
     </p>
   </aside>
 </template>

@@ -1,32 +1,56 @@
-# BlockStrat
+<p align="center">
+  <img src="docs/images/logo.svg" alt="BlockStrat logo" width="96" height="96">
+</p>
 
-Build a trading strategy from Scratch-style blocks and see immediately how it would have performed on historical crypto data. Describe a strategy in plain words and an AI assistant builds the blocks for you.
+<h1 align="center">BlockStrat</h1>
 
-- **Blocks, not code.** A root Strategy block with four required slots: Instrument, Timeframe, Entry Rule, Exit. Until they are filled, the app lists what is missing.
-- **Instant Preview.** Every change reruns a real backtest (last ~3000 bars, typically under 100 ms on the server); **Full Backtest** runs the whole history.
-- **Honest by default.** Orders fill at the next bar's open (no look-ahead). Commission and slippage come from an editable Execution Preset.
-- **AI assistant.** Gemini turns a description into strategy JSON, never code (ADR 0001), validated against the same schema as the blocks.
-- **Save and share.** Strategies are saved in the browser, exported as JSON, or shared as a link that opens with the result.
+<p align="center">
+  Build a crypto trading strategy from blocks, or describe it in a sentence, and see how it would have done on real Binance prices.
+  <br>
+  <a href="https://blockstrat.vercel.app"><strong>blockstrat.vercel.app</strong></a> · Beta · Free for personal use · AGPL-3.0
+</p>
 
-Results are simulations on past data, not investment advice.
+![The BlockStrat landing page](docs/images/landing.png)
+
+## What it does
+
+- **Blocks, not code.** A strategy is a market, a timeframe, a rule to buy and a rule to sell, snapped together from blocks: SMA, EMA, RSI, MACD, Bollinger Bands, Stochastic, highs and lows, price change and volume, with and/or groups, stop-loss, take-profit and trailing stops, long and short sides.
+- **Backtests on real prices.** Hourly, 4-hour and daily candles of ten large crypto pairs from Binance, back to 2017. Every change replays the test in well under a second, on several markets at once.
+- **Honest numbers.** Orders fill at the next bar's open, so nothing peeks into the future, and commission and slippage are counted on every trade.
+- **AI assistant.** Describe an idea in plain words and the assistant (a Groq-hosted model) answers with editable blocks, never code. It says so when you ask for something the engine cannot do.
+- **Mark trades on a chart.** Draw the trades you would have taken and get strategies whose rules would have taken similar ones.
+- **Save, share, export.** Strategies stay in your browser, download as JSON, export to TradingView Pine Script, and share as a link that opens with the result.
+
+![The builder: blocks in the middle, the backtest result on three markets on the right](docs/images/builder.png)
+
+BlockStrat never places orders, never connects to an exchange and is not investment advice. Results are simulations on past prices.
+
+## Beta limits
+
+The hosted site limits each visitor to **10 assistant messages an hour** (and a daily total for everyone), plus generous hourly limits on backtests, charts and strategy searches. Self-hosted, every limit is an environment variable (see [backend/.env.example](backend/.env.example)).
 
 ## Architecture
 
 ```
-Nuxt (Vercel)      ──HTTPS──▶  FastAPI (VPS, Coolify)
-  / landing page (prerendered)
-  /app builder:
-  Blockly editor                 Strategy schema (Pydantic) ──▶ JSON Schema ──▶ TS types
-  blocks ↔ strategy JSON         Binance klines → parquet cache
-  lightweight-charts             backtesting.py adapter (ADR 0002)
-                                 Gemini structured output + rate limits
+Nuxt 4 + Tailwind (Vercel)          ──HTTPS──▶   FastAPI (VPS, Coolify)
+  /         landing page (prerendered)             strategy schema (Pydantic) ──▶ JSON Schema ──▶ TS types
+  /app      builder (Vue Flow, lightweight-charts) Binance klines ──▶ parquet cache
+  /terms    /privacy                               backtesting.py engine (ADR 0002)
+                                                   Groq structured output, rate limits per IP
 ```
 
-Domain terms: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr](docs/adr). Spec and tickets: [.scratch/strategy-lab](.scratch/strategy-lab).
+Domain terms: [GLOSSARY.md](GLOSSARY.md). Decisions: [docs/adr](docs/adr).
 
 ## Run locally
 
-Requirements: [uv](https://docs.astral.sh/uv/), Node.js 22+.
+Requirements: [uv](https://docs.astral.sh/uv/) and Node.js 22+.
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+```
+
+Put a free Groq key from [console.groq.com/keys](https://console.groq.com/keys) in `backend/.env` for the assistant; everything else works without it.
 
 ```bash
 cd backend && uv run uvicorn blockstrat.api:create_default_app --factory --port 8000
@@ -36,7 +60,7 @@ cd backend && uv run uvicorn blockstrat.api:create_default_app --factory --port 
 cd frontend && npm install && npm run dev
 ```
 
-Open http://localhost:3000 for the landing page, or http://localhost:3000/app for the builder. The backend downloads Binance price history on first start (about a minute for all instruments) and caches it in `backend/data/`. For the AI chat, set `GEMINI_API_KEY` before starting the backend.
+Open http://localhost:3000 for the landing page and http://localhost:3000/app for the builder. On its first start the backend downloads the Binance price history (about a minute) and caches it in `backend/data/`.
 
 ## Tests
 
@@ -56,8 +80,10 @@ cd frontend && npm run gen:types
 
 ## Deploy
 
-See [docs/deployment.md](docs/deployment.md).
+Backend on Coolify, frontend on Vercel, both deploying `main` on push: see [docs/deployment.md](docs/deployment.md).
 
 ## License
 
-The backtest engine, backtesting.py, is AGPL-3.0, so this repository is public.
+The code is licensed under the [GNU Affero General Public License v3.0](LICENSE), the license of its backtest engine, [backtesting.py](https://github.com/kernc/backtesting.py). You may use, change and share it; if you run a changed version as a service, you must publish your changes under the same license.
+
+The hosted site at [blockstrat.vercel.app](https://blockstrat.vercel.app) is free for personal use; business use needs an agreement, see its [Terms of Service](https://blockstrat.vercel.app/terms). The BlockStrat name and logo are not covered by the code license.

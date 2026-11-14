@@ -1,8 +1,9 @@
 <script setup lang="ts">
-useSeoMeta({
-  title: 'Terms of Service · BlockStrat',
-  description: 'The rules for using BlockStrat: a free backtester for crypto trading ideas that is not investment advice.',
-})
+usePageMeta(
+  '/terms',
+  'Terms of Service · BlockStrat',
+  'The rules for using BlockStrat: a backtester for your own crypto strategies, free for personal use and not investment advice.',
+)
 
 const SECTIONS = [
   { id: 'provider', title: 'Who provides BlockStrat' },
@@ -41,7 +42,8 @@ const SECTIONS = [
     <section id="service">
       <h2>What BlockStrat does</h2>
       <p>
-        BlockStrat is a tool for building and testing your own trading strategies. It lets you, without an account and free of charge:
+        BlockStrat is a tool for building and testing your own trading strategies. It lets you, without an account and free of charge
+        for personal use:
       </p>
       <ul>
         <li>build a trading strategy from ready-made blocks, or describe it to the assistant, which proposes the blocks;</li>
@@ -52,6 +54,11 @@ const SECTIONS = [
       <p>
         BlockStrat never places orders, never connects to an exchange account, never asks for exchange keys and never holds money or
         crypto. It is a simulator only.
+      </p>
+      <p>
+        BlockStrat is in beta: features, limits and results may change while it is being built. Personal use is free. Using the site
+        for a business, for example in a fund, a trading firm or a paid course, needs a separate agreement: write to
+        <a :href="`mailto:${OPERATOR.email}`">{{ OPERATOR.email }}</a>.
       </p>
     </section>
 
@@ -118,7 +125,8 @@ const SECTIONS = [
       </ul>
       <p>
         The site limits how many backtests, chart loads, strategy searches and assistant messages one address can make each hour.
-        When you reach a limit, the builder asks you to try again later.
+        During the beta the assistant answers up to {{ AI_MESSAGES_PER_HOUR }} messages an hour. When you reach a limit, the builder
+        asks you to try again later.
       </p>
     </section>
 
@@ -159,8 +167,10 @@ const SECTIONS = [
     <section id="ownership">
       <h2>Ownership</h2>
       <p>
-        The site's code, design, texts and the BlockStrat name and logo belong to {{ OPERATOR.name }}. You may use the site as these
-        terms allow, but not copy or redistribute it.
+        BlockStrat's source code is open source under the
+        <a :href="SOURCE_URL" target="_blank" rel="noopener">GNU Affero General Public License v3.0</a>: you may use, change and share
+        it under that license. These terms cover the site at {{ SITE_URL.replace('https://', '') }}, not the code. The BlockStrat name
+        and logo belong to {{ OPERATOR.name }} and are not part of the license.
       </p>
       <p>
         Strategies you build are yours: use, share and publish them as you like. Market data is Binance's and is shown under its

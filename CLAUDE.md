@@ -48,12 +48,13 @@ Everything written to the repo is in English: code, identifiers, comments, commi
 - `frontend/app/assets/icons/`: Lucide interface glyphs, inlined by `UiIcon`.
 - `frontend/app/data/`: precomputed real backtests for the landing demo (from `backend/scripts/`).
 - `frontend/app/utils/`: the strategy document (editable model ↔ strategy JSON), the guide, the block library and indicator maths, the popular-strategy templates, the build replay's steps, result summaries, strategy files/share links, drawn trades, the Pine Script export, the operator details on the legal pages.
-- `frontend/app/composables/`: the strategy editor with undo, backtests per market, the build replay, the simple/advanced mode, the theme toggle, the API client, chart themes and the landing demo.
+- `frontend/app/composables/`: the strategy editor with undo, backtests per market, the build replay, the simple/advanced mode, the theme toggle, page titles and social cards, the API client, chart themes and the landing demo.
 - `frontend/app/types/`: TypeScript types generated from the backend schema (`npm run gen:types`); never edit by hand.
+- `frontend/public/`: favicons, the social card image, robots.txt, sitemap.xml and llms.txt.
 - `frontend/public/fx/`: the taste kit's grain-gradient shader (copied as plain files), the hero's moving ground.
 - `frontend/public/brand-icons/`: real brand and coin logos (fetched with the taste skill's icons.mjs, credits in its JSON).
 - `frontend/test/`: Vitest tests of the pure converters.
-- `docs/`: ADRs, deployment guide, agent docs.
+- `docs/`: ADRs, deployment guide, agent docs, the README's logo and screenshots (`docs/images/`).
 - `.scratch/`: local issue tracker (specs and tickets).
 
 ## Defaults (a repo's own CLAUDE.md overrides these)

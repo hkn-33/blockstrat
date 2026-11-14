@@ -2,12 +2,11 @@
 import Lenis from 'lenis'
 import 'lenis/dist/lenis.css'
 
-useSeoMeta({
-  title: 'BlockStrat: test a trading idea before you risk money',
-  ogTitle: 'BlockStrat: test a trading idea before you risk money',
-  description: 'Snap a trading strategy together from blocks, or describe it in a sentence, and see how it would have done on real Binance prices. No code.',
-  ogDescription: 'Build a trading strategy from blocks or a sentence and backtest it on real Binance prices.',
-})
+usePageMeta(
+  '/',
+  'BlockStrat: no-code crypto strategy builder and backtester',
+  'Build a crypto trading strategy from blocks or describe it to the AI assistant, then backtest it on years of real Binance prices with fees. Free, no code, no sign-up.',
+)
 
 // The run the bento tiles quote: trend with an RSI filter on Solana, 5% stop.
 const featuredRun = demoRun('combo', 'SOLUSDT', 5)
@@ -106,8 +105,40 @@ const FAQ = [
   { question: 'Is this investment advice?', answer: 'No. BlockStrat is a tool for building and testing your own strategies; it never recommends trades. A strategy that worked on past prices can still lose money in the future.' },
   { question: 'Where do the prices come from?', answer: 'Binance public market data: hourly, four-hourly and daily candles for ten large crypto pairs, back to 2017.' },
   { question: 'Can I share a strategy?', answer: 'Yes. Copy the link and anyone who opens it sees your blocks and the result.' },
-  { question: 'Does it cost anything?', answer: 'No. It is free and needs no sign-up.' },
+  { question: 'Does it cost anything?', answer: `Not for personal use, and there is no sign-up. BlockStrat is in beta, so the assistant answers up to ${AI_MESSAGES_PER_HOUR} messages an hour. Using it for a business needs an agreement: write to ${OPERATOR.email}.` },
+  { question: 'Is BlockStrat open source?', answer: 'Yes. The code is on GitHub under the AGPL-3.0 license, so you can read it, run it yourself and change it.' },
 ]
+
+// Structured data for search engines and AI answer engines: what the app is, what it costs, and the FAQ as questions.
+useHead({
+  script: [{
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify([
+      {
+        '@context': 'https://schema.org',
+        '@type': 'WebApplication',
+        'name': 'BlockStrat',
+        'url': SITE_URL,
+        'applicationCategory': 'FinanceApplication',
+        'operatingSystem': 'Any (web browser)',
+        'description': 'A no-code tool for building crypto trading strategies from blocks or a plain-language description and backtesting them on historical Binance prices with fees. It does not trade or give investment advice.',
+        'offers': { '@type': 'Offer', 'price': '0', 'priceCurrency': 'USD', 'description': 'Free for personal use during the beta' },
+        'author': { '@type': 'Person', 'name': OPERATOR.name },
+        'license': 'https://www.gnu.org/licenses/agpl-3.0.html',
+        'codeRepository': SOURCE_URL,
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        'mainEntity': FAQ.map(item => ({
+          '@type': 'Question',
+          'name': item.question,
+          'acceptedAnswer': { '@type': 'Answer', 'text': item.answer },
+        })),
+      },
+    ]),
+  }],
+})
 </script>
 
 <template>
@@ -384,7 +415,8 @@ const FAQ = [
             <BrandLogo />
             <p class="mt-4 text-[15px] leading-[1.6] text-[var(--ink-soft)]">
               A tool for building and testing your own crypto strategies on past prices. It does not recommend trades, never trades for
-              you and is not investment advice.
+              you and is not investment advice. Free for personal use; open source under
+              <a :href="SOURCE_URL" target="_blank" rel="noopener" class="footer-link underline underline-offset-2">AGPL-3.0</a>.
             </p>
           </div>
           <nav aria-label="Footer">
@@ -397,6 +429,7 @@ const FAQ = [
               <li><a href="#ai" class="footer-link">Assistant</a></li>
               <li><a href="#honest" class="footer-link">How it counts</a></li>
               <li><a href="#faq" class="footer-link">Questions</a></li>
+              <li><a :href="SOURCE_URL" target="_blank" rel="noopener" class="footer-link">Source code on GitHub</a></li>
             </ul>
           </nav>
           <nav aria-label="Legal">
@@ -415,7 +448,7 @@ const FAQ = [
           BlockStrat
         </p>
         <p class="border-t border-[var(--line)] py-8 text-[14px] text-[var(--muted)]">
-          © 2026 BlockStrat. The tester quotes on this page are placeholders.
+          © 2026 BlockStrat · Beta. The tester quotes on this page are placeholders.
         </p>
       </div>
     </footer>

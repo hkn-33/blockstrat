@@ -1,8 +1,9 @@
 <script setup lang="ts">
-useSeoMeta({
-  title: 'Privacy Policy · BlockStrat',
-  description: 'What BlockStrat does with your data: no account, no cookies, no tracking, and what the server and the assistant see.',
-})
+usePageMeta(
+  '/privacy',
+  'Privacy Policy · BlockStrat',
+  'What BlockStrat does with your data: no account, no cookies, no tracking, and what the server and the assistant see.',
+)
 
 const SECTIONS = [
   { id: 'short', title: 'The short version' },

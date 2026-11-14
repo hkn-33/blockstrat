@@ -3,8 +3,9 @@ name = "blockstrat"
 version = "0.1.0"
 description = "BlockStrat backend: strategy schema, market data and backtests"
 authors = [
-    { name = "Jakub Janik", email = "JJanik2k@gmail.com" }
+    { name = "Jakub Janik", email = "hakendev@gmail.com" }
 ]
+license = "AGPL-3.0-only"
 requires-python = ">=3.12"
 dependencies = [
     "backtesting>=0.6.6",
