@@ -13,7 +13,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --frozen --no-dev
 
-# The limits count requests per client address, which the reverse proxy (Coolify's Traefik, or Caddy) passes in
+# The limits count requests per client address, which the reverse proxy (Coolify's Traefik) passes in
 # X-Forwarded-For. It is believed only from the private networks such a proxy runs on, so a client cannot claim
 # another address and slip past the limits; set FORWARDED_ALLOW_IPS to the proxy's address to narrow it further.
 ENV FORWARDED_ALLOW_IPS="127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"

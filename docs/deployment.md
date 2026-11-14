@@ -89,7 +89,3 @@ Nothing runs the tests before a deploy: run `uv run pytest` in `backend/` and `n
 ## Secrets
 
 The Groq key lives only in Coolify's environment variables, and locally in `backend/.env`. Both are outside git (`.env` is git-ignored); never commit a key, never put it in a `NUXT_PUBLIC_` variable. If a key leaks, revoke it at console.groq.com/keys and set the new one in Coolify.
-
-## Without Coolify
-
-`deploy/` holds an equivalent Docker Compose setup with Caddy for HTTPS: copy `deploy/.env.example` to `deploy/.env`, fill it in, and run `docker compose up -d --build` in `deploy/`.

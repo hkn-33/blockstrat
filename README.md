@@ -13,7 +13,7 @@ Results are simulations on past data, not investment advice.
 ## Architecture
 
 ```
-Nuxt (Vercel)      ──HTTPS──▶  FastAPI (VPS, Docker + Caddy)
+Nuxt (Vercel)      ──HTTPS──▶  FastAPI (VPS, Coolify)
   / landing page (prerendered)
   /app builder:
   Blockly editor                 Strategy schema (Pydantic) ──▶ JSON Schema ──▶ TS types
