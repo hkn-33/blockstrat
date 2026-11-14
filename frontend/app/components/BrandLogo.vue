@@ -9,7 +9,6 @@
       <polyline class="mark-line" points="8,21 12.5,16.5 16.5,19.5 24,12" />
     </svg>
     <span class="brand-logo__word">BlockStrat</span>
-    <span class="brand-logo__beta">Beta</span>
   </span>
 </template>
 
@@ -45,15 +44,4 @@
   letter-spacing: -0.02em;
 }
 
-.brand-logo__beta {
-  border-radius: 6px;
-  padding: 0.1rem 0.4rem;
-  box-shadow: inset 0 0 0 1px currentColor;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.4;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
 </style>
