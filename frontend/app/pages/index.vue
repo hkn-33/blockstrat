@@ -162,7 +162,7 @@ const FAQ = [
             </template>
           </h1>
           <div class="lg:pt-3">
-            <p class="enter-step max-w-[33rem] text-[19px] leading-[1.6] text-[var(--ink-soft)]" style="--step: 0">
+            <p class="enter-step max-w-[33rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]" style="--step: 0">
               Snap a strategy together from blocks, or just describe it. BlockStrat replays it on real Binance prices,
               fees included, and tells you if it beat simply holding.
             </p>
@@ -338,7 +338,7 @@ const FAQ = [
           <p class="quote-result">
             {{ quote.result }}
           </p>
-          <blockquote class="mt-3 text-[17px] leading-[1.6]">
+          <blockquote class="mt-3 text-[18px] leading-[1.6]">
             “{{ quote.text }}”
           </blockquote>
           <figcaption class="mt-6 flex items-center gap-3 text-[14px] text-[var(--muted)]">
@@ -354,7 +354,7 @@ const FAQ = [
         <h2 class="section-title">
           Questions
         </h2>
-        <p class="mt-5 max-w-[24rem] text-[17px] leading-[1.6] text-[var(--ink-soft)]">
+        <p class="mt-5 max-w-[24rem] text-[18px] leading-[1.6] text-[var(--ink-soft)]">
           The builder opens with an example strategy, so the fastest answer is often to change a block and watch.
         </p>
         <NuxtLink to="/app" class="btn btn-ink mt-8">
@@ -364,7 +364,7 @@ const FAQ = [
       </div>
       <dl class="grid gap-x-10 gap-y-9 sm:grid-cols-2">
         <div v-for="item in FAQ" :key="item.question">
-          <dt class="text-[17px] font-bold text-[var(--ink)]">
+          <dt class="text-[18px] font-bold text-[var(--ink)]">
             {{ item.question }}
           </dt>
           <dd class="mt-2 text-[15px] leading-[1.6] text-[var(--ink-soft)]">
@@ -687,7 +687,7 @@ const FAQ = [
   gap: 0.6rem;
   border-radius: 10px;
   padding: 0.95rem 1.5rem;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   transition: background-color 160ms, transform 120ms;
@@ -835,7 +835,7 @@ const FAQ = [
 }
 
 .tile-title {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -903,7 +903,7 @@ const FAQ = [
 }
 
 .quote-result {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--accent-ink);
